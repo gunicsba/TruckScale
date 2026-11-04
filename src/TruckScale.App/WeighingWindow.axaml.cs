@@ -246,11 +246,22 @@ public partial class WeighingWindow : Window
     private void UpdateHint()
     {
         var problem = Problem();
-        if (_done is not null) { WeighButton.IsEnabled = false; return; }
+        if (_done is not null)
+        {
+            WeighButton.IsEnabled = false;
+            PrintButton.Content = "Nyomtatás";
+            PrintButton.IsEnabled = !_busy;
+            return;
+        }
         HintText.Text = problem ?? (_open is null && UseStoredTare.IsChecked == true
             ? $"Egy mérés: nettó = mért súly − {AppState.Kg(CurrentVehicle?.LastTare)}"
             : "");
         WeighButton.IsEnabled = problem is null && !_busy;
+        // When the ticket gets closed, "Mérés + nyomtatás" does everything in one go (and is the Enter key).
+        PrintButton.Content = "Mérés + nyomtatás";
+        PrintButton.IsEnabled = WeighButton.IsEnabled && ClosesTicket;
+        PrintButton.IsDefault = ClosesTicket;
+        WeighButton.IsDefault = !ClosesTicket;
     }
 
     private string? Problem()
@@ -272,7 +283,16 @@ public partial class WeighingWindow : Window
 
     private async void OnWeigh(object? sender, RoutedEventArgs e)
     {
-        if (_busy || Problem() is not null) return;
+        if (await Weigh() is { } done) ShowDone(done);
+    }
+
+    /// <summary>
+    /// Mérés. Returns the closed weighing (2nd weighing or "Használ"), or null if nothing was closed
+    /// (1st weighing: the window closes; cancelled or failed: the window stays).
+    /// </summary>
+    private async Task<Weighing?> Weigh()
+    {
+        if (_busy || Problem() is not null) return null;
         int weight = _state.Reading!.Weight;
         var now = DateTime.Now;
         _busy = true;
@@ -283,9 +303,8 @@ public partial class WeighingWindow : Window
             {
                 if (Math.Abs(weight - (_open.FirstWeight ?? 0)) < 200 &&
                     !await Dialog.Confirm(this, "Mérés", $"A két mérés szinte azonos ({AppState.Kg(_open.FirstWeight)} / {AppState.Kg(weight)}).\nBiztosan lezárja?"))
-                    return;
-                ShowDone(_state.Db.CloseWeighing(_open.Id, weight, now));
-                return;
+                    return null;
+                return _state.Db.CloseWeighing(_open.Id, weight, now);
             }
 
             var draft = new WeighingDraft(
@@ -293,20 +312,17 @@ public partial class WeighingWindow : Window
                 CurrentPartner!.Name, PlateBox.Text ?? "", DriverBox.Text, MaterialBox.Text, MarkingBox.Text);
 
             if (UseStoredTare.IsChecked == true)
-            {
-                ShowDone(_state.Db.SingleWeighing(draft, weight, now));
-                return;
-            }
-            else
-            {
-                var w = _state.Db.StartWeighing(draft, weight, now);
-                await Dialog.Info(this, "1. mérés", $"{w.Plate}: {AppState.Kg(weight)} rögzítve.\nA jármű az udvaron van, távozáskor válassza ki a listából.");
-            }
+                return _state.Db.SingleWeighing(draft, weight, now);
+
+            var w = _state.Db.StartWeighing(draft, weight, now);
+            await Dialog.Info(this, "1. mérés", $"{w.Plate}: {AppState.Kg(weight)} rögzítve.\nA jármű az udvaron van, távozáskor válassza ki a listából.");
             Close();
+            return null;
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
             await Dialog.Info(this, "Mérés", ex.Message);
+            return null;
         }
         finally
         {
@@ -337,12 +353,22 @@ public partial class WeighingWindow : Window
         PrintButton.Focus();
     }
 
+    /// <summary>"Mérés + nyomtatás": closes the ticket (if not yet), prints it and closes the window.</summary>
     private async void OnPrint(object? sender, RoutedEventArgs e)
     {
-        if (_done is null) return;
-        if (TicketService.Print(_state, _done) is { } err) await Dialog.Info(this, "Nyomtatás", err);
-        else HintText.Text = $"Mérlegjegy {_done.TicketNo} elküldve a nyomtatóra.";
+        var done = _done ?? await Weigh();
+        if (done is null) return;
+        if (TicketService.Print(_state, done) is { } err)
+        {
+            if (_done is null) ShowDone(done);      // keep the result on screen so printing can be retried
+            await Dialog.Info(this, "Nyomtatás", err);
+            return;
+        }
+        Close();
     }
+
+    /// <summary>Closing the ticket (2nd weighing or "Használ") – then printing makes sense.</summary>
+    private bool ClosesTicket => _open is not null || UseStoredTare.IsChecked == true;
 
     private async void OnVoid(object? sender, RoutedEventArgs e)
     {

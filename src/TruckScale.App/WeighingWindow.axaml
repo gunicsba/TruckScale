@@ -80,8 +80,8 @@
     <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
       <Button x:Name="VoidButton" Content="Stornó (törlés)" MinWidth="120" IsVisible="False" Foreground="#a00" />
       <Button x:Name="CancelButton" Content="Mégse" MinWidth="100" IsCancel="True" />
-      <Button x:Name="PrintButton" Content="Nyomtatás" MinWidth="120" Height="40" FontSize="16" IsEnabled="False"
-              ToolTip.Tip="A mérlegjegy nyomtatása (a 2. mérés után)" />
+      <Button x:Name="PrintButton" Content="Mérés + nyomtatás" MinWidth="180" Height="40" FontSize="16" FontWeight="Bold" IsEnabled="False"
+              ToolTip.Tip="Lezárás: mérés, mérlegjegy nyomtatása és az ablak bezárása egy lépésben" />
       <Button x:Name="WeighButton" Content="Mérés" MinWidth="140" Height="40" FontSize="16" FontWeight="Bold" IsDefault="True" />
     </StackPanel>
   </Grid>
