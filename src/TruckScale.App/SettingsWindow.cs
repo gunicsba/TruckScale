@@ -24,7 +24,12 @@ public static class Printers
         var current = state.Db.GetSetting("printer.name");
         if (!string.IsNullOrWhiteSpace(current) && !list.Contains(current)) list.Insert(0, current); // keep it visible even if missing
         var combo = new ComboBox { ItemsSource = list, SelectedItem = current, MinWidth = 320, PlaceholderText = "alapértelmezett nyomtató" };
-        combo.SelectionChanged += (_, _) => { if (combo.SelectedItem is string s) state.Db.SetSetting("printer.name", s); };
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (combo.SelectedItem is not string s || s == state.Db.GetSetting("printer.name")) return;
+            state.Db.SetSetting("printer.name", s);
+            TicketService.WarmUp(s);
+        };
         return combo;
     }
 }
@@ -146,7 +151,11 @@ public sealed class SettingsWindow : Window
     {
         foreach (var (key, box) in _fields)
             _state.Db.SetSetting(key, string.IsNullOrWhiteSpace(box.Text) ? null : box.Text.Trim());
-        if (_printer.SelectedItem is string printer) _state.Db.SetSetting("printer.name", printer);
+        if (_printer.SelectedItem is string printer && printer != _state.Db.GetSetting("printer.name"))
+        {
+            _state.Db.SetSetting("printer.name", printer);
+            TicketService.WarmUp(printer);
+        }
         if (_port.SelectedItem is string port) _state.Db.SetSetting("serial.port", port);
         if (_baud.SelectedItem is string baud) _state.Db.SetSetting("serial.baud", baud);
         _state.Db.SetSetting("scale.simulator", _sim.IsChecked == true ? "1" : "0");

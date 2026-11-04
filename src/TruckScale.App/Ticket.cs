@@ -39,13 +39,20 @@ public static class TicketService
     public static string? PrinterName(AppState state) => state.Db.GetSetting("printer.name");
 
     /// <summary>Prints the ticket. Returns an error message, or null on success.</summary>
-    public static string? Print(AppState state, Weighing w)
+    /// <summary>Everything needed to print a ticket; built on the UI thread (database), printed on any thread.</summary>
+    public sealed record PrintJob(List<TicketItem> Items, string? Printer, string FontName, string DocName);
+
+    public static PrintJob Prepare(AppState state, Weighing w) =>
+        new(Build(state, w), PrinterName(state), state.Db.GetSetting("printer.font_name") ?? "Arial", $"Mérlegjegy {w.TicketNo}");
+
+    /// <summary>Prints a prepared ticket (can run on a background thread). Returns an error message, or null on success.</summary>
+    public static string? Run(PrintJob job)
     {
         if (!OperatingSystem.IsWindows())
             return "A közvetlen nyomtatás egyelőre csak Windows alatt működik.";
         try
         {
-            PrintWindows(Build(state, w), PrinterName(state), state.Db.GetSetting("printer.font_name") ?? "Arial", $"Mérlegjegy {w.TicketNo}");
+            PrintWindows(job.Items, job.Printer, job.FontName, job.DocName);
             return null;
         }
         catch (Exception ex)
@@ -54,16 +61,44 @@ public static class TicketService
         }
     }
 
+    /// <summary>Prints on a background thread so the window stays responsive.</summary>
+    public static Task<string?> PrintAsync(AppState state, Weighing w)
+    {
+        var job = Prepare(state, w);
+        return Task.Run(() => Run(job));
+    }
+
+    /// <summary>
+    /// Loads the printer driver in the background. The first use of the driver after the program starts can
+    /// take 10+ seconds (measured: 13 s for the HP); afterwards it is fast. Called at startup and when the printer changes.
+    /// </summary>
+    public static void WarmUp(string? printer)
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return;
+        Task.Run(() =>
+        {
+            try
+            {
+                var ps = new PrinterSettings();
+                if (!string.IsNullOrWhiteSpace(printer)) ps.PrinterName = printer;
+                if (ps.IsValid) _ = ps.DefaultPageSettings.HardMarginX;
+            }
+            catch { /* only a speed-up */ }
+        });
+    }
+
     [SupportedOSPlatform("windows")]
     private static void PrintWindows(List<TicketItem> items, string? printer, string fontName, string docName)
     {
         using var doc = new PrintDocument { DocumentName = docName, PrintController = new StandardPrintController() };
         if (!string.IsNullOrWhiteSpace(printer))
         {
-            if (!PrinterSettings.InstalledPrinters.Cast<string>().Contains(printer, StringComparer.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"A(z) „{printer}” nyomtató nem található.");
             doc.PrinterSettings.PrinterName = printer;
+            if (!doc.PrinterSettings.IsValid)
+                throw new InvalidOperationException($"A(z) „{printer}” nyomtató nem található.");
         }
+        var fonts = new Dictionary<double, System.Drawing.Font>();
+        doc.EndPrint += (_, _) => { foreach (var f in fonts.Values) f.Dispose(); };
         doc.PrintPage += (_, e) =>
         {
             var g = e.Graphics!;
@@ -79,7 +114,8 @@ public static class TicketService
                             g.DrawLine(pen, (float)l.X, (float)l.Y, (float)(l.X + l.Length), (float)l.Y);
                         break;
                     case TicketText t:
-                        using (var font = new System.Drawing.Font(fontName, (float)t.FontSize, System.Drawing.GraphicsUnit.Point))
+                        if (!fonts.TryGetValue(t.FontSize, out var font))
+                            fonts[t.FontSize] = font = new System.Drawing.Font(fontName, (float)t.FontSize, System.Drawing.GraphicsUnit.Point);
                         using (var sf = new System.Drawing.StringFormat(System.Drawing.StringFormatFlags.NoWrap))
                         {
                             sf.Alignment = t.Align switch
@@ -156,7 +192,10 @@ public sealed class TicketPreviewWindow : Window
         };
         print.Click += async (_, _) =>
         {
-            if (TicketService.Print(state, w) is { } err) await Dialog.Info(this, "Nyomtatás", err);
+            print.IsEnabled = false;
+            print.Content = "Nyomtatás…";
+            var err = await TicketService.PrintAsync(state, w);
+            if (err is not null) { await Dialog.Info(this, "Nyomtatás", err); print.IsEnabled = true; print.Content = "Nyomtatás"; }
             else Close();
         };
         close.Click += (_, _) => Close();

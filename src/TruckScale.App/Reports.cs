@@ -437,9 +437,9 @@ public static class ReportPrinter
         using var pd = new PrintDocument { DocumentName = doc.Title, PrintController = new StandardPrintController() };
         if (!string.IsNullOrWhiteSpace(printer))
         {
-            if (!PrinterSettings.InstalledPrinters.Cast<string>().Contains(printer, StringComparer.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"A(z) „{printer}” nyomtató nem található.");
             pd.PrinterSettings.PrinterName = printer;
+            if (!pd.PrinterSettings.IsValid)
+                throw new InvalidOperationException($"A(z) „{printer}” nyomtató nem található.");
         }
         using var pager = new Pager(doc, fontName, total);
         pd.PrintPage += (_, e) =>

@@ -356,12 +356,22 @@ public partial class WeighingWindow : Window
     /// <summary>"Mérés + nyomtatás": closes the ticket (if not yet), prints it and closes the window.</summary>
     private async void OnPrint(object? sender, RoutedEventArgs e)
     {
+        if (_busy) return;
         var done = _done ?? await Weigh();
         if (done is null) return;
-        if (TicketService.Print(_state, done) is { } err)
+        // Show the result (ticket number, net weight) right away; the window closes when printing is done.
+        if (_done is null) ShowDone(done);
+        _busy = true;
+        UpdateHint();
+        HintText.Foreground = Avalonia.Media.Brushes.DarkGreen;
+        HintText.Text = $"Mérlegjegy {done.TicketNo} nyomtatása folyamatban…";
+        var err = await TicketService.PrintAsync(_state, done);
+        _busy = false;
+        if (err is not null)
         {
-            if (_done is null) ShowDone(done);      // keep the result on screen so printing can be retried
-            await Dialog.Info(this, "Nyomtatás", err);
+            HintText.Text = "";
+            UpdateHint();
+            await Dialog.Info(this, "Nyomtatás", err + "\n\nA mérés le van zárva; a jegy újranyomtatható (Nyomtatás gomb vagy Napló).");
             return;
         }
         Close();

@@ -76,6 +76,7 @@ public sealed class AppState : IDisposable
             state.ReadingUpdated?.Invoke();
         });
         scale.Start();
+        TicketService.WarmUp(db.GetSetting("printer.name"));
         return state;
     }
 
