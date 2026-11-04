@@ -338,7 +338,7 @@ public sealed class SummaryWindow : Window
                new("Bruttó (kg)", 21, TextAlign.Right), new("Tára (kg)", 21, TextAlign.Right), new("Nettó (kg)", 21, TextAlign.Right)];
         string[] Cells(SummaryRow r) => h2 is null
             ? [r.DirectionText, r.Level1, r.Count.ToString(), N(r.Gross), N(r.Tare), N(r.Net)]
-            : [r.IsSubtotal ? "" : r.DirectionText, r.IsSubtotal ? r.Level1 + " összesen" : r.Level1, r.IsSubtotal ? "" : r.Level2 ?? "",
+            : [r.IsSubtotal ? "" : r.DirectionText, r.Level1, r.IsSubtotal ? "Összesen" : r.Level2 ?? "",
                r.Count.ToString(), N(r.Gross), N(r.Tare), N(r.Net)];
         string[] total = h2 is null
             ? ["Összesen", "", t.Count.ToString(), N(t.Gross), N(t.Tare), N(t.Net)]
@@ -383,75 +383,115 @@ public static class ReportPrinter
     public static string? Print(ReportDoc doc, AppState state)
     {
         if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return "A közvetlen nyomtatás egyelőre csak Windows alatt működik.";
-        try { PrintWindows(doc, state.Db.GetSetting("printer.name"), state.Db.GetSetting("printer.font_name") ?? "Arial", new StandardPrintController()); return null; }
+        try { PrintWindows(doc, state.Db.GetSetting("printer.name"), state.Db.GetSetting("printer.font_name") ?? "Arial"); return null; }
         catch (Exception ex) { return "Nyomtatási hiba: " + ex.Message; }
     }
 
-    /// <summary>Renders the pages exactly as they will be printed (PNG images), for the on-screen preview.</summary>
+    /// <summary>
+    /// Renders full A4 pages (PNG, 150 dpi) with exactly the same drawing code as the printout,
+    /// for the on-screen preview. Needs no printer.
+    /// </summary>
     public static List<byte[]> Preview(ReportDoc doc, AppState state)
     {
         if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return [];
-        var pc = new PreviewPrintController();
-        PrintWindows(doc, state.Db.GetSetting("printer.name"), state.Db.GetSetting("printer.font_name") ?? "Arial", pc);
+        var fontName = state.Db.GetSetting("printer.font_name") ?? "Arial";
+        int total = CountPages(doc, fontName);
+        using var pager = new Pager(doc, fontName, total);
         var pages = new List<byte[]>();
-        foreach (var info in pc.GetPreviewPageInfo())
+        bool more = true;
+        while (more && pages.Count < 1000)
         {
-            // 150 dpi rendering of an A4 page
             using var bmp = new System.Drawing.Bitmap(1240, 1754);
+            bmp.SetResolution(150, 150);
             using (var g = System.Drawing.Graphics.FromImage(bmp))
             {
                 g.Clear(System.Drawing.Color.White);
-                g.DrawImage(info.Image, 0, 0, bmp.Width, bmp.Height);
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                g.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
+                more = pager.DrawPage(g);
             }
             using var ms = new MemoryStream();
             bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
             pages.Add(ms.ToArray());
-            info.Image.Dispose();
         }
         return pages;
     }
 
     [SupportedOSPlatform("windows6.1")]
-    private static void PrintWindows(ReportDoc doc, string? printer, string fontName, PrintController controller)
+    private static int CountPages(ReportDoc doc, string fontName)
     {
-        var lines = new List<PLine> { new(Kind.Title, Text: doc.Title) };
-        lines.AddRange(doc.HeaderLines.Select(h => new PLine(Kind.Header, Text: h)));
-        foreach (var s in doc.Sections)
-        {
-            lines.Add(new PLine(Kind.Gap));
-            lines.Add(new PLine(Kind.SectionTitle, s, Text: s.Title));
-            lines.Add(new PLine(Kind.ColHeader, s));
-            for (int i = 0; i < s.Rows.Count; i++)
-            {
-                bool isBold = s.BoldRows.Contains(i);
-                lines.Add(new PLine(Kind.Row, s, s.Rows[i], Bold: isBold));
-                if (isBold && s.SpaceAfterBold && i < s.Rows.Count - 1) lines.Add(new PLine(Kind.Gap));
-            }
-            if (s.TotalRow is not null) lines.Add(new PLine(Kind.Total, s, s.TotalRow));
-        }
+        using var pager = new Pager(doc, fontName, 0);
+        using var bmp = new System.Drawing.Bitmap(10, 10);
+        bmp.SetResolution(150, 150);
+        using var g = System.Drawing.Graphics.FromImage(bmp);
+        g.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
+        int n = 1;
+        while (pager.DrawPage(g) && n < 1000) n++;
+        return n;
+    }
 
-        using var doc2 = new PrintDocument { DocumentName = doc.Title, PrintController = controller };
+    [SupportedOSPlatform("windows6.1")]
+    private static void PrintWindows(ReportDoc doc, string? printer, string fontName)
+    {
+        int total = CountPages(doc, fontName);
+        using var pd = new PrintDocument { DocumentName = doc.Title, PrintController = new StandardPrintController() };
         if (!string.IsNullOrWhiteSpace(printer))
         {
             if (!PrinterSettings.InstalledPrinters.Cast<string>().Contains(printer, StringComparer.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"A(z) „{printer}” nyomtató nem található.");
-            doc2.PrinterSettings.PrinterName = printer;
+            pd.PrinterSettings.PrinterName = printer;
         }
-        int next = 0, page = 0;
-        var printed = DateTime.Now;
-        using var normal = new System.Drawing.Font(fontName, 8f);
-        using var bold = new System.Drawing.Font(fontName, 8f, System.Drawing.FontStyle.Bold);
-        using var big = new System.Drawing.Font(fontName, 14f, System.Drawing.FontStyle.Bold);
-        using var mid = new System.Drawing.Font(fontName, 10f, System.Drawing.FontStyle.Bold);
-        using var pen = new System.Drawing.Pen(System.Drawing.Color.Black, 0.2f);
-
-        doc2.PrintPage += (_, e) =>
+        using var pager = new Pager(doc, fontName, total);
+        pd.PrintPage += (_, e) =>
         {
             var g = e.Graphics!;
             g.PageUnit = System.Drawing.GraphicsUnit.Millimeter;
-            if (controller is not PreviewPrintController)
-                g.TranslateTransform(-(float)(e.PageSettings.HardMarginX * 0.254), -(float)(e.PageSettings.HardMarginY * 0.254));
-            page++;
+            // Coordinates are from the paper edge; the printer's origin is at its hard margin.
+            g.TranslateTransform(-(float)(e.PageSettings.HardMarginX * 0.254), -(float)(e.PageSettings.HardMarginY * 0.254));
+            e.HasMorePages = pager.DrawPage(g);
+        };
+        pd.Print();
+    }
+
+    /// <summary>Lays the report out page by page; the same code draws the printout and the preview.</summary>
+    [SupportedOSPlatform("windows6.1")]
+    private sealed class Pager : IDisposable
+    {
+        private readonly List<PLine> _lines = [];
+        private readonly int _total;
+        private readonly DateTime _printed = DateTime.Now;
+        private readonly System.Drawing.Font _normal, _bold, _big, _mid;
+        private readonly System.Drawing.Pen _pen = new(System.Drawing.Color.Black, 0.2f);
+        private int _next, _page;
+
+        public Pager(ReportDoc doc, string fontName, int totalPages)
+        {
+            _total = totalPages;
+            _normal = new System.Drawing.Font(fontName, 8f);
+            _bold = new System.Drawing.Font(fontName, 8f, System.Drawing.FontStyle.Bold);
+            _big = new System.Drawing.Font(fontName, 14f, System.Drawing.FontStyle.Bold);
+            _mid = new System.Drawing.Font(fontName, 10f, System.Drawing.FontStyle.Bold);
+            _lines.Add(new PLine(Kind.Title, Text: doc.Title));
+            _lines.AddRange(doc.HeaderLines.Select(h => new PLine(Kind.Header, Text: h)));
+            foreach (var s in doc.Sections)
+            {
+                _lines.Add(new PLine(Kind.Gap));
+                _lines.Add(new PLine(Kind.SectionTitle, s, Text: s.Title));
+                _lines.Add(new PLine(Kind.ColHeader, s));
+                for (int i = 0; i < s.Rows.Count; i++)
+                {
+                    bool isBold = s.BoldRows.Contains(i);
+                    _lines.Add(new PLine(Kind.Row, s, s.Rows[i], Bold: isBold));
+                    if (isBold && s.SpaceAfterBold && i < s.Rows.Count - 1) _lines.Add(new PLine(Kind.Gap));
+                }
+                if (s.TotalRow is not null) _lines.Add(new PLine(Kind.Total, s, s.TotalRow));
+            }
+        }
+
+        /// <summary>Draws the next page (Graphics in millimetres, origin = paper corner). Returns true if more pages follow.</summary>
+        public bool DrawPage(System.Drawing.Graphics g)
+        {
+            _page++;
             float y = Top;
 
             void Cells(ReportSection s, string[] cells, System.Drawing.Font font)
@@ -471,43 +511,48 @@ public static class ReportPrinter
             }
             void ColHeader(ReportSection s)
             {
-                Cells(s, s.Columns.Select(c => c.Header).ToArray(), bold);
-                g.DrawLine(pen, Left, y + LineH - 0.3f, Left + (float)s.Columns.Sum(c => c.Width), y + LineH - 0.3f);
+                Cells(s, s.Columns.Select(c => c.Header).ToArray(), _bold);
+                g.DrawLine(_pen, Left, y + LineH - 0.3f, Left + (float)s.Columns.Sum(c => c.Width), y + LineH - 0.3f);
                 y += LineH + 0.5f;
             }
 
-            // A new page never starts with an empty line.
-            while (page > 1 && next < lines.Count && lines[next].Kind == Kind.Gap) next++;
-            // Continuing a table on a new page: repeat its column header.
-            if (page > 1 && next < lines.Count && lines[next].Kind is Kind.Row or Kind.Total) ColHeader(lines[next].Section!);
+            // A new page never starts with an empty line; a table continued on a new page repeats its column header.
+            while (_page > 1 && _next < _lines.Count && _lines[_next].Kind == Kind.Gap) _next++;
+            if (_page > 1 && _next < _lines.Count && _lines[_next].Kind is Kind.Row or Kind.Total) ColHeader(_lines[_next].Section!);
 
-            while (next < lines.Count)
+            while (_next < _lines.Count)
             {
-                var l = lines[next];
+                var l = _lines[_next];
                 float need = l.Kind switch { Kind.Title => 8, Kind.SectionTitle => LineH * 3, _ => LineH };
                 if (y + need > Bottom) break;
                 switch (l.Kind)
                 {
-                    case Kind.Title: g.DrawString(l.Text, big, System.Drawing.Brushes.Black, Left, y); y += 8; break;
-                    case Kind.Header: g.DrawString(l.Text, normal, System.Drawing.Brushes.Black, Left, y); y += LineH; break;
+                    case Kind.Title: g.DrawString(l.Text, _big, System.Drawing.Brushes.Black, Left, y); y += 8; break;
+                    case Kind.Header: g.DrawString(l.Text, _normal, System.Drawing.Brushes.Black, Left, y); y += LineH; break;
                     case Kind.Gap: y += LineH; break;
-                    case Kind.SectionTitle: g.DrawString(l.Text, mid, System.Drawing.Brushes.Black, Left, y); y += 6; break;
+                    case Kind.SectionTitle: g.DrawString(l.Text, _mid, System.Drawing.Brushes.Black, Left, y); y += 6; break;
                     case Kind.ColHeader: ColHeader(l.Section!); break;
-                    case Kind.Row: Cells(l.Section!, l.Cells!, l.Bold ? bold : normal); y += LineH; break;
+                    case Kind.Row: Cells(l.Section!, l.Cells!, l.Bold ? _bold : _normal); y += LineH; break;
                     case Kind.Total:
-                        g.DrawLine(pen, Left, y, Left + (float)l.Section!.Columns.Sum(c => c.Width), y);
+                        g.DrawLine(_pen, Left, y, Left + (float)l.Section!.Columns.Sum(c => c.Width), y);
                         y += 0.5f;
-                        Cells(l.Section, l.Cells!, bold); y += LineH; break;
+                        Cells(l.Section, l.Cells!, _bold); y += LineH; break;
                 }
-                next++;
+                _next++;
             }
 
             using var foot = new System.Drawing.StringFormat { Alignment = System.Drawing.StringAlignment.Far };
-            g.DrawString($"Nyomtatva: {printed:yyyy.MM.dd. HH:mm}", normal, System.Drawing.Brushes.Black, Left, Bottom + 4);
-            g.DrawString($"{page}. oldal", normal, System.Drawing.Brushes.Black, new System.Drawing.RectangleF(Left, Bottom + 4, 180, LineH), foot);
-            e.HasMorePages = next < lines.Count;
-        };
-        doc2.Print();
+            g.DrawLine(_pen, Left, Bottom + 2.5f, Left + 180, Bottom + 2.5f);
+            g.DrawString($"Nyomtatva: {_printed:yyyy.MM.dd. HH:mm}", _normal, System.Drawing.Brushes.Black, Left, Bottom + 3.5f);
+            g.DrawString(_total > 0 ? $"{_page} / {_total}. oldal" : $"{_page}. oldal", _normal, System.Drawing.Brushes.Black,
+                new System.Drawing.RectangleF(Left, Bottom + 3.5f, 180, LineH), foot);
+            return _next < _lines.Count;
+        }
+
+        public void Dispose()
+        {
+            _normal.Dispose(); _bold.Dispose(); _big.Dispose(); _mid.Dispose(); _pen.Dispose();
+        }
     }
 }
 
@@ -517,10 +562,12 @@ public sealed class ReportPreviewWindow : Window
     public ReportPreviewWindow(AppState state, ReportDoc doc)
     {
         Title = $"{doc.Title} – előnézet";
-        Width = 900;
-        Height = 760;
+        Width = 860;
+        Height = 860;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var pages = new StackPanel { Spacing = 16, Margin = new Thickness(20), HorizontalAlignment = HorizontalAlignment.Center };
+        var imgs = new List<Image>();
+        double pageWidth = 520; // a whole A4 page fits in the window
         var images = ReportPrinter.Preview(doc, state);
         foreach (var png in images)
         {
@@ -528,7 +575,7 @@ public sealed class ReportPreviewWindow : Window
             pages.Children.Add(new Border
             {
                 BoxShadow = BoxShadows.Parse("0 2 8 0 #60000000"),
-                Child = new Image { Source = new Avalonia.Media.Imaging.Bitmap(ms), Width = 800 },
+                Child = imgs.AddAndReturn(new Image { Source = new Avalonia.Media.Imaging.Bitmap(ms), Width = pageWidth }),
             });
         }
         if (images.Count == 0) pages.Children.Add(new TextBlock { Text = "Előnézet egyelőre csak Windows alatt.", Foreground = Brushes.White });
@@ -541,10 +588,24 @@ public sealed class ReportPreviewWindow : Window
             else Close();
         };
         close.Click += (_, _) => Close();
+        var zoomOut = new Button { Content = "−", MinWidth = 36 };
+        var zoomIn = new Button { Content = "+", MinWidth = 36 };
+        void Zoom(double factor)
+        {
+            pageWidth = Math.Clamp(pageWidth * factor, 300, 1240);
+            foreach (var i in imgs) i.Width = pageWidth;
+        }
+        zoomOut.Click += (_, _) => Zoom(1 / 1.25);
+        zoomIn.Click += (_, _) => Zoom(1.25);
         var bar = new StackPanel
         {
             Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8), HorizontalAlignment = HorizontalAlignment.Right,
-            Children = { new TextBlock { Text = $"{images.Count} oldal    Nyomtató:", VerticalAlignment = VerticalAlignment.Center }, Printers.Chooser(state), close, print },
+            Children =
+            {
+                zoomOut, zoomIn,
+                new TextBlock { Text = $"   {images.Count} oldal    Nyomtató:", VerticalAlignment = VerticalAlignment.Center },
+                Printers.Chooser(state), close, print,
+            },
         };
         var root = new DockPanel();
         DockPanel.SetDock(bar, Dock.Bottom);
@@ -552,4 +613,9 @@ public sealed class ReportPreviewWindow : Window
         root.Children.Add(new ScrollViewer { Background = Brushes.Gray, Content = pages });
         Content = root;
     }
+}
+
+internal static class ListExtensions
+{
+    public static T AddAndReturn<T>(this List<T> list, T item) { list.Add(item); return item; }
 }
