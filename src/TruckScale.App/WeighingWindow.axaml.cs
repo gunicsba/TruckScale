@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using TruckScale.Core;
 using TruckScale.Core.Data;
@@ -107,6 +108,8 @@ public partial class WeighingWindow : Window
         {
             if (CurrentPartner is { } cur && await new PartnerEditWindow(_state, cur).ShowDialog<Partner?>(this) is { } p) UsePartner(p);
         };
+        PartnerNew.IsTabStop = PartnerEdit.IsTabStop = false;
+        Opened += (_, _) => { if (_open is null) PartnerBox.Focus(); };
         WeighButton.Click += OnWeigh;
         PrintButton.Click += OnPrint;
         VoidButton.Click += OnVoid;
@@ -147,6 +150,24 @@ public partial class WeighingWindow : Window
         box.MaxDropDownHeight = 320;
         box.ItemFilter = (search, item) =>
             string.IsNullOrEmpty(search) || Normalize.NameKey(item?.ToString()).Contains(Normalize.NameKey(search));
+
+        // Tab goes from field to field; the ▾ button is for the mouse.
+        listButton.IsTabStop = false;
+
+        // ↑/↓ (with the list closed) steps to the previous/next item.
+        box.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (box.IsDropDownOpen || e.Key is not (Key.Up or Key.Down) || items.Count == 0) return;
+            var key = Normalize.NameKey(box.Text);
+            int i = items.FindIndex(x => Normalize.NameKey(x.ToString()) == key);
+            if (i < 0) i = items.FindIndex(x => Normalize.NameKey(x.ToString()).StartsWith(key)) - (e.Key == Key.Down ? 1 : 0);
+            int next = Math.Clamp(i < 0 && e.Key == Key.Up ? 0 : i + (e.Key == Key.Down ? 1 : -1), 0, items.Count - 1);
+            box.Text = items[next].ToString();
+            box.SelectedItem = items[next];
+            box.IsDropDownOpen = false;
+            box.CaretIndex = box.Text?.Length ?? 0;
+            e.Handled = true;
+        }, RoutingStrategies.Tunnel);
 
         string? before = null;
         listButton.Click += (_, _) =>

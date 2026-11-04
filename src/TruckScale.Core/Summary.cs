@@ -3,7 +3,8 @@ using TruckScale.Core.Data;
 namespace TruckScale.Core;
 
 /// <summary>Filter of the Áttekintés (summary). Dates are whole days, both inclusive.</summary>
-public sealed record SummaryFilter(DateTime From, DateTime To, Direction? Direction = null, long? PartnerId = null, long? MaterialId = null);
+public sealed record SummaryFilter(DateTime From, DateTime To, Direction? Direction = null, long? PartnerId = null, long? MaterialId = null,
+    WeighingFilter? Text = null);
 
 public sealed record SummaryGroup(string Material, Direction Direction, int Count, long Gross, long Tare, long Net)
 {
@@ -30,7 +31,8 @@ public static class Summary
         return all.Where(w => w.Status == WeighingStatus.Done && w.ClosedAt >= from && w.ClosedAt < to
                               && (f.Direction is null || w.Direction == f.Direction)
                               && (f.PartnerId is null || w.PartnerId == f.PartnerId)
-                              && (f.MaterialId is null || w.MaterialId == f.MaterialId))
+                              && (f.MaterialId is null || w.MaterialId == f.MaterialId)
+                              && (f.Text is null || f.Text.Matches(w)))
             .OrderBy(w => w.ClosedAt).ThenBy(w => w.TicketNo)
             .ToList();
     }

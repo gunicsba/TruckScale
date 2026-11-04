@@ -19,7 +19,7 @@ namespace TruckScale.App;
 public sealed class LogWindow : Window
 {
     private readonly AppState _state;
-    private readonly TextBox _search = new() { PlaceholderText = "Keresés (jegyszám, ügyfél, rendszám, sofőr, anyag, megjelölés)…", MinWidth = 420 };
+    private readonly FilterBar _filter = new(withTicketAndDate: true);
     private readonly CheckBox _showVoid = new() { Content = "Stornók is", VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _count = new() { Classes = { "hint" }, VerticalAlignment = VerticalAlignment.Center };
     private readonly DataGrid _grid = Grids.Weighings(withStatus: true);
@@ -29,12 +29,12 @@ public sealed class LogWindow : Window
     {
         _state = state;
         Title = "Napló – összes mérés";
-        Width = 1250;
+        Width = 1500;
         Height = 760;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         _all = state.Db.ClosedWeighings(new DateTime(1900, 1, 1), new DateTime(2100, 1, 1));
-        _search.TextChanged += (_, _) => Filter();
+        _filter.Changed += Filter;
         _showVoid.IsCheckedChanged += (_, _) => Filter();
         _grid.DoubleTapped += async (_, _) => await OpenTicket();
         _grid.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await OpenTicket(); } };
@@ -44,7 +44,11 @@ public sealed class LogWindow : Window
         var close = new Button { Content = "Bezárás", IsCancel = true };
         close.Click += (_, _) => Close();
 
-        var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 0, 0, 8), Children = { _search, _showVoid, _count } };
+        var top = new StackPanel
+        {
+            Spacing = 6, Margin = new Thickness(0, 0, 0, 8),
+            Children = { _filter, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { _showVoid, _count } } },
+        };
         var bottom = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
         DockPanel.SetDock(close, Dock.Right);
         bottom.Children.Add(close);
@@ -57,16 +61,14 @@ public sealed class LogWindow : Window
         root.Children.Add(_grid);
         Content = root;
 
-        Opened += (_, _) => _search.Focus();
+        Opened += (_, _) => _filter.FocusFirst();
         Filter();
     }
 
     private void Filter()
     {
-        var key = Normalize.NameKey(_search.Text);
-        var rows = _all.Where(w => (_showVoid.IsChecked == true || w.Status != WeighingStatus.Void) &&
-                (key.Length == 0 || Normalize.NameKey($"{w.TicketNo} {w.PartnerName} {w.Plate} {Normalize.PlateKey(w.Plate)} {w.DriverName} {w.MaterialName} {w.MaterialNote} {w.Marking}").Contains(key)))
-            .ToList();
+        var f = _filter.Filter;
+        var rows = _all.Where(w => (_showVoid.IsChecked == true || w.Status != WeighingStatus.Void) && f.Matches(w)).ToList();
         _grid.ItemsSource = rows;
         var t = Summary.Total(rows.Where(r => r.Status == WeighingStatus.Done));
         _count.Text = $"{rows.Count} tétel    nettó összesen: {AppState.Kg((int)Math.Min(int.MaxValue, t.Net))}";
@@ -76,6 +78,69 @@ public sealed class LogWindow : Window
     {
         if (_grid.SelectedItem is Weighing { Status: WeighingStatus.Done } w)
             await new TicketPreviewWindow(_state, w).ShowDialog(this);
+    }
+}
+
+/// <summary>Per-column search fields (Napló, Áttekintés). Every filled field must match.</summary>
+public sealed class FilterBar : WrapPanel
+{
+    private readonly TextBox? _ticket, _date;
+    private readonly TextBox _plate, _partner, _driver, _material, _marking;
+    private readonly ComboBox _dir = new() { ItemsSource = new[] { "Mind", "Beszállítás", "Kiszállítás" }, SelectedIndex = 0, Width = 130 };
+    private readonly List<(string Label, TextBox Box)> _boxes = [];
+
+    public event Action? Changed;
+
+    public FilterBar(bool withTicketAndDate)
+    {
+        TextBox Box(string label, double width, string? hint = null)
+        {
+            var b = new TextBox { Width = width, PlaceholderText = hint };
+            b.TextChanged += (_, _) => Changed?.Invoke();
+            _boxes.Add((label, b));
+            Children.Add(Field(label, b));
+            return b;
+        }
+        if (withTicketAndDate)
+        {
+            _ticket = Box("Jegy", 70);
+            _date = Box("Dátum", 110, "pl. 2023.07");
+        }
+        Children.Add(Field("Irány", _dir));
+        _dir.SelectionChanged += (_, _) => Changed?.Invoke();
+        _plate = Box("Rendszám", 130);
+        _partner = Box("Ügyfél", 190);
+        _driver = Box("Sofőr", 150);
+        _material = Box("Anyag", 150);
+        _marking = Box("Megjelölés", 140);
+        var clear = new Button { Content = "Szűrők törlése", VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(4, 0, 0, 0) };
+        clear.Click += (_, _) =>
+        {
+            foreach (var (_, b) in _boxes) b.Text = "";
+            _dir.SelectedIndex = 0;
+        };
+        Children.Add(clear);
+    }
+
+    private static Control Field(string label, Control c) => new StackPanel
+    {
+        Margin = new Thickness(0, 0, 8, 4),
+        Children = { new TextBlock { Text = label, Classes = { "hint" } }, c },
+    };
+
+    public WeighingFilter Filter => new(
+        _ticket?.Text, _date?.Text, _dir.SelectedIndex switch { 1 => Direction.In, 2 => Direction.Out, _ => null },
+        _plate.Text, _partner.Text, _driver.Text, _material.Text, _marking.Text);
+
+    public void FocusFirst() => _boxes.FirstOrDefault().Box?.Focus();
+
+    /// <summary>Human-readable description for printouts, e.g. "Irány: Beszállítás, Ügyfél: kiss".</summary>
+    public string Describe()
+    {
+        var parts = new List<string>();
+        if (_dir.SelectedIndex > 0) parts.Add($"Irány: {_dir.SelectedItem}");
+        parts.AddRange(_boxes.Where(x => !string.IsNullOrWhiteSpace(x.Box.Text)).Select(x => $"{x.Label}: „{x.Box.Text!.Trim()}”"));
+        return parts.Count == 0 ? "nincs (minden mérés)" : string.Join(", ", parts);
     }
 }
 
@@ -120,9 +185,7 @@ public sealed class SummaryWindow : Window
     private readonly List<Weighing> _all;
     private readonly CalendarDatePicker _from = new() { SelectedDateFormat = CalendarDatePickerFormat.Custom, CustomDateFormatString = "yyyy.MM.dd." };
     private readonly CalendarDatePicker _to = new() { SelectedDateFormat = CalendarDatePickerFormat.Custom, CustomDateFormatString = "yyyy.MM.dd." };
-    private readonly ComboBox _dir = new() { ItemsSource = new[] { "Mind", "Beszállítás", "Kiszállítás" }, SelectedIndex = 0, MinWidth = 140 };
-    private readonly ComboBox _partner = new() { MinWidth = 260 };
-    private readonly ComboBox _material = new() { MinWidth = 200 };
+    private readonly FilterBar _filter = new(withTicketAndDate: false);
     private readonly ComboBox _grouping = new()
     {
         ItemsSource = new[] { "Anyagonként", "Anyagonként és ügyfelenként", "Ügyfelenként és anyagonként" }, SelectedIndex = 1, MinWidth = 240,
@@ -133,8 +196,6 @@ public sealed class SummaryWindow : Window
     private readonly TextBlock _total = new() { FontWeight = FontWeight.Bold, FontSize = 15 };
     private List<Weighing> _rows = [];
 
-    private sealed record Choice(long? Id, string Text) { public override string ToString() => Text; }
-
     public SummaryWindow(AppState state)
     {
         _state = state;
@@ -144,10 +205,6 @@ public sealed class SummaryWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         _all = state.Db.ClosedWeighings(new DateTime(1900, 1, 1), new DateTime(2100, 1, 1));
-        var hu = StringComparer.Create(AppState.Hu, true);
-        _partner.ItemsSource = new[] { new Choice(null, "Minden ügyfél") }.Concat(state.Db.Partners().OrderBy(p => p.Name, hu).Select(p => new Choice(p.Id, p.Name))).ToList();
-        _material.ItemsSource = new[] { new Choice(null, "Minden anyag") }.Concat(state.Db.Materials().OrderBy(m => m.Display, hu).Select(m => new Choice(m.Id, m.Display))).ToList();
-        _partner.SelectedIndex = _material.SelectedIndex = 0;
         var today = DateTime.Today;
         _from.SelectedDate = new DateTime(today.Year, 1, 1);
         _to.SelectedDate = today;
@@ -162,9 +219,7 @@ public sealed class SummaryWindow : Window
 
         _from.SelectedDateChanged += (_, _) => Recalc();
         _to.SelectedDateChanged += (_, _) => Recalc();
-        _dir.SelectionChanged += (_, _) => Recalc();
-        _partner.SelectionChanged += (_, _) => Recalc();
-        _material.SelectionChanged += (_, _) => Recalc();
+        _filter.Changed += Recalc;
 
         Button Quick(string text, Func<(DateTime, DateTime)> range)
         {
@@ -197,7 +252,7 @@ public sealed class SummaryWindow : Window
             Children =
             {
                 new WrapPanel { Children = { Labeled("Időszak", _from), new TextBlock { Text = " – ", VerticalAlignment = VerticalAlignment.Center }, _to, new Border { Width = 12 }, quick } },
-                new WrapPanel { Children = { Labeled("Irány", _dir), new Border { Width = 16 }, Labeled("Ügyfél", _partner), new Border { Width = 16 }, Labeled("Anyag", _material) } },
+                _filter,
                 new WrapPanel { Children = { Labeled("Csoportosítás", _grouping) } },
             },
         };
@@ -224,9 +279,7 @@ public sealed class SummaryWindow : Window
     }
 
     private SummaryFilter CurrentFilter() => new(
-        _from.SelectedDate ?? DateTime.Today, _to.SelectedDate ?? DateTime.Today,
-        _dir.SelectedIndex switch { 1 => Direction.In, 2 => Direction.Out, _ => null },
-        (_partner.SelectedItem as Choice)?.Id, (_material.SelectedItem as Choice)?.Id);
+        _from.SelectedDate ?? DateTime.Today, _to.SelectedDate ?? DateTime.Today, Text: _filter.Filter);
 
     private void Recalc()
     {
@@ -272,7 +325,7 @@ public sealed class SummaryWindow : Window
             string.Join(", ", new[] { s.GetValueOrDefault("company.name"), s.GetValueOrDefault("company.zip") + " " + s.GetValueOrDefault("company.town"), s.GetValueOrDefault("company.street") }
                 .Where(x => !string.IsNullOrWhiteSpace(x))),
             $"Időszak: {f.From:yyyy.MM.dd.} – {f.To:yyyy.MM.dd.}",
-            $"Irány: {_dir.SelectedItem}    Ügyfél: {_partner.SelectedItem}    Anyag: {_material.SelectedItem}",
+            $"Szűrés: {_filter.Describe()}",
         };
         var sections = new List<ReportSection>();
         var t = Summary.Total(_rows);
