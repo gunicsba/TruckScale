@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+.vs/
+*.user
+
+# Local data – never commit (customer data, company tax numbers, addresses)
+*.LIS
+*.lis
+*.ldb
+*.db
+*.db-shm
+*.db-wal
+TS.ini
+*.form

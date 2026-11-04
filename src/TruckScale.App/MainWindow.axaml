@@ -1,0 +1,118 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TruckScale.App.MainWindow"
+        Title="Truck Scale"
+        Width="1200" Height="780" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+  <DockPanel>
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="_Fájl">
+        <MenuItem Header="_Beszállítás" Click="OnIn" />
+        <MenuItem Header="_Kiszállítás" Click="OnOut" />
+        <Separator />
+        <MenuItem Header="_Kilépés" Click="OnExit" />
+      </MenuItem>
+      <MenuItem Header="_Segítség">
+        <MenuItem Header="_Névjegy" Click="OnAbout" />
+      </MenuItem>
+    </Menu>
+
+    <!-- Toolbar -->
+    <Border DockPanel.Dock="Top" BorderBrush="#ccc" BorderThickness="0,0,0,1" Padding="4">
+      <WrapPanel>
+        <Button Classes="tool" Click="OnIn" ToolTip.Tip="Új beszállítás (1. mérés)">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <PathIcon Width="40" Height="40" Foreground="#2f6fd6" Data="F1 M9,2 H15 V12 H20 L12,21 L4,12 H9 Z" />
+            <TextBlock Text="Beszállítás" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="tool" Click="OnOut" ToolTip.Tip="Új kiszállítás (1. mérés)">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <PathIcon Width="40" Height="40" Foreground="#2f6fd6" Data="F1 M12,2 L20,11 H15 V21 H9 V11 H4 Z" />
+            <TextBlock Text="Kiszállítás" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="tool" x:Name="LeaveButton" Click="OnLeave" ToolTip.Tip="A kijelölt jármű távozása (2. mérés)">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <PathIcon Width="40" Height="40" Foreground="#2a9d4b" Data="F1 M3,8 L8,3 V6 H18 V10 H8 V13 Z M21,16 L16,21 V18 H6 V14 H16 V11 Z" />
+            <TextBlock Text="Távozás" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="tool" IsEnabled="False" ToolTip.Tip="Hamarosan">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <PathIcon Width="40" Height="40" Foreground="#d4a017" Data="F1 M3,4 H21 V7 H3 Z M3,10.5 H21 V13.5 H3 Z M3,17 H21 V20 H3 Z" />
+            <TextBlock Text="Napló" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="tool" IsEnabled="False" ToolTip.Tip="Hamarosan">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <PathIcon Width="40" Height="40" Foreground="#6a5acd" Data="M3,3 H21 V21 H3 Z M5,5 V9 H19 V5 Z M5,11 V14 H11 V11 Z M13,11 V14 H19 V11 Z M5,16 V19 H11 V16 Z M13,16 V19 H19 V16 Z" />
+            <TextBlock Text="Adatállomány" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="tool" IsEnabled="False" ToolTip.Tip="Hamarosan">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <PathIcon Width="40" Height="40" Foreground="#2a9d4b" Data="F1 M3,5 H21 V7 H3 Z M3,11 H21 V13 H3 Z M3,17 H21 V19 H3 Z M6,2.5 H10 V9.5 H6 Z M14,8.5 H18 V15.5 H14 Z M8,14.5 H12 V21.5 H8 Z" />
+            <TextBlock Text="Beállítás" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="tool" Click="OnExit">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <PathIcon Width="40" Height="40" Foreground="#c0283c" Data="F1 M5,3 L12,10 L19,3 L21,5 L14,12 L21,19 L19,21 L12,14 L5,21 L3,19 L10,12 L3,5 Z" />
+            <TextBlock Text="Kilépés" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </WrapPanel>
+    </Border>
+
+    <!-- Status bar -->
+    <Border DockPanel.Dock="Bottom" Background="#eee" BorderBrush="#ccc" BorderThickness="0,1,0,0" Padding="8,3">
+      <TextBlock x:Name="StatusText" Classes="hint" />
+    </Border>
+
+    <!-- Weight display + simulator -->
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="8">
+      <StackPanel x:Name="SimulatorPanel" Grid.Column="0" Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0" IsVisible="False">
+        <TextBlock Text="Szimulátor – súly a mérlegen:" FontWeight="SemiBold" />
+        <Slider x:Name="SimSlider" Minimum="0" Maximum="60000" SmallChange="20" LargeChange="1000" />
+        <WrapPanel x:Name="SimPresets" />
+      </StackPanel>
+      <Border x:Name="WeightHost" Grid.Column="1" Width="420" Height="120" />
+    </Grid>
+
+    <!-- Lists -->
+    <TabControl Margin="8,0,8,8">
+      <TabItem x:Name="YardTab" Header="Udvaron">
+        <DataGrid x:Name="YardGrid" IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="Horizontal"
+                  CanUserResizeColumns="True" DoubleTapped="OnYardDoubleTapped" KeyDown="OnYardKeyDown">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Irány" Binding="{Binding DirectionText}" />
+            <DataGridTextColumn Header="Rendszám" Binding="{Binding Plate}" />
+            <DataGridTextColumn Header="Ügyfél" Binding="{Binding PartnerName}" Width="2*" />
+            <DataGridTextColumn Header="Sofőr" Binding="{Binding DriverName}" />
+            <DataGridTextColumn Header="Anyag" Binding="{Binding MaterialName}" />
+            <DataGridTextColumn Header="Megjelölés" Binding="{Binding Marking}" />
+            <DataGridTextColumn Header="1. mérés (kg)" Binding="{Binding FirstWeight, StringFormat='{}{0:N0}'}" />
+            <DataGridTextColumn Header="Érkezett" Binding="{Binding FirstAt, StringFormat='{}{0:yyyy.MM.dd. HH:mm}'}" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </TabItem>
+      <TabItem x:Name="TodayTab" Header="Mai mérések">
+        <DataGrid x:Name="TodayGrid" IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="Horizontal" CanUserResizeColumns="True">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Jegy" Binding="{Binding TicketNo}" />
+            <DataGridTextColumn Header="Állapot" Binding="{Binding StatusText}" />
+            <DataGridTextColumn Header="Irány" Binding="{Binding DirectionText}" />
+            <DataGridTextColumn Header="Rendszám" Binding="{Binding Plate}" />
+            <DataGridTextColumn Header="Ügyfél" Binding="{Binding PartnerName}" Width="2*" />
+            <DataGridTextColumn Header="Anyag" Binding="{Binding MaterialName}" />
+            <DataGridTextColumn Header="Bruttó" Binding="{Binding Gross, StringFormat='{}{0:N0}'}" />
+            <DataGridTextColumn Header="Tára" Binding="{Binding Tare, StringFormat='{}{0:N0}'}" />
+            <DataGridTextColumn Header="Nettó" Binding="{Binding Net, StringFormat='{}{0:N0}'}" />
+            <DataGridTextColumn Header="Lezárva" Binding="{Binding ClosedAt, StringFormat='{}{0:HH:mm}'}" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>
