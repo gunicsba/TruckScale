@@ -13,3 +13,6 @@ obj/
 *.db-wal
 TS.ini
 *.form
+
+# Local test builds
+publish/
