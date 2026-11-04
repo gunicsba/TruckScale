@@ -144,7 +144,7 @@ public sealed class TicketPreviewWindow : Window
     public TicketPreviewWindow(AppState state, Weighing w)
     {
         Title = $"Mérlegjegy {w.TicketNo} – előnézet";
-        Width = 210 * PxPerMm + 60;
+        Width = 980;
         Height = 760;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
@@ -187,7 +187,6 @@ public sealed class TicketPreviewWindow : Window
             {
                 new TextBlock { Text = "Nyomtató:", VerticalAlignment = VerticalAlignment.Center },
                 Printers.Chooser(state),
-                new TextBlock { Text = $"Forma: {System.IO.Path.GetFileName(source)}", Classes = { "hint" }, VerticalAlignment = VerticalAlignment.Center },
             },
         };
         print.Click += async (_, _) =>
@@ -200,21 +199,61 @@ public sealed class TicketPreviewWindow : Window
         };
         close.Click += (_, _) => Close();
 
+        // Zoom: the page is scaled; "Egész oldal" fits the whole A4 page into the window (default).
+        var scale = new ScaleTransform(1, 1);
+        var zoomed = new LayoutTransformControl
+        {
+            LayoutTransform = scale,
+            Child = new Border { Child = page, BoxShadow = BoxShadows.Parse("0 2 8 0 #60000000") },
+        };
+        var scroller = new ScrollViewer
+        {
+            Background = Brushes.Gray,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            Content = new Border { Margin = new Thickness(20), HorizontalAlignment = HorizontalAlignment.Center, Child = zoomed },
+        };
+        var zoomText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MinWidth = 44 };
+        void SetZoom(double z)
+        {
+            z = Math.Clamp(z, 0.3, 3);
+            scale.ScaleX = scale.ScaleY = z;
+            zoomText.Text = $"{z * 100:0}%";
+        }
+        void Fit()
+        {
+            var h = scroller.Bounds.Height - 40;
+            var w = scroller.Bounds.Width - 40;
+            if (h > 0 && w > 0) SetZoom(Math.Min(h / page.Height, w / page.Width));
+        }
+        var zoomOut = new Button { Content = "−", MinWidth = 36 };
+        var zoomIn = new Button { Content = "+", MinWidth = 36 };
+        var fit = new Button { Content = "Egész oldal" };
+        zoomOut.Click += (_, _) => SetZoom(scale.ScaleX / 1.25);
+        zoomIn.Click += (_, _) => SetZoom(scale.ScaleX * 1.25);
+        fit.Click += (_, _) => Fit();
+        // Ctrl + mouse wheel zooms as well.
+        scroller.AddHandler(PointerWheelChangedEvent, (_, e) =>
+        {
+            if (!e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control)) return;
+            SetZoom(scale.ScaleX * (e.Delta.Y > 0 ? 1.1 : 1 / 1.1));
+            e.Handled = true;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        Opened += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(Fit, Avalonia.Threading.DispatcherPriority.Loaded);
+        SetZoom(0.7);
+
         var bar = new DockPanel { Margin = new Thickness(8) };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { close, print } };
+        var zoomBar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(0, 0, 16, 0), Children = { zoomOut, zoomText, zoomIn, fit } };
         DockPanel.SetDock(buttons, Dock.Right);
+        DockPanel.SetDock(zoomBar, Dock.Left);
         bar.Children.Add(buttons);
+        bar.Children.Add(zoomBar);
         bar.Children.Add(info);
 
         var root = new DockPanel();
         DockPanel.SetDock(bar, Dock.Bottom);
         root.Children.Add(bar);
-        root.Children.Add(new ScrollViewer
-        {
-            Background = Brushes.Gray,
-            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            Content = new Border { Margin = new Thickness(20), Child = page, BoxShadow = BoxShadows.Parse("0 2 8 0 #60000000") },
-        });
+        root.Children.Add(scroller);
         Content = root;
     }
 }
