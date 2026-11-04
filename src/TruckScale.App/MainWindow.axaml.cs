@@ -85,6 +85,8 @@ public partial class MainWindow : Window
             await new TicketPreviewWindow(_state, w).ShowDialog(this);
     }
 
+    private async void OnSettings(object? sender, RoutedEventArgs e) => await new SettingsWindow(_state).ShowDialog(this);
+
     private async void OnData(object? sender, RoutedEventArgs e)
     {
         await new PartnersWindow(_state).ShowDialog(this);

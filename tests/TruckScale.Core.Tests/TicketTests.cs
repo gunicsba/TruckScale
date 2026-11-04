@@ -20,6 +20,7 @@ public class TicketTests
         <028><06><105><095><M><10><000><000><TaraD><>
         <029><05><195><095><R><10><000><000><NettoD><>
         <046><43><150><075><L><10><000><000><Strata><>
+        <033><32><105><120><M><10><000><000><Poznamka><>
         <END>
         """;
 
@@ -35,7 +36,7 @@ public class TicketTests
     public void Parses_fields()
     {
         var f = TicketForm.Parse(Sample);
-        Assert.Equal(10, f.Count);
+        Assert.Equal(11, f.Count);
         Assert.Equal(new FormField(1, 21, 105, 10, TextAlign.Center, 16, 0, "Nadpis listok", "Mérlegjegy"), f[0]);
         Assert.Equal(180, f[1].Width);
         Assert.Equal(TextAlign.Right, f[8].Align);
@@ -44,7 +45,7 @@ public class TicketTests
     [Fact]
     public void Fills_in_the_weighing()
     {
-        var items = TicketForm.Layout(TicketForm.Parse(Sample), W, new Dictionary<string, string?>());
+        var items = TicketForm.Layout(TicketForm.Parse(Sample), W, new Dictionary<string, string?> { ["company.note"] = "Falu 0130/3 Hrsz" });
         var texts = items.OfType<TicketText>().Select(t => t.Text.Replace(' ', ' ')).ToList();
         Assert.Contains("Mérlegjegy", texts);
         Assert.Contains("417", texts);
@@ -54,6 +55,7 @@ public class TicketTests
         Assert.Contains("26 440 kg", texts);
         Assert.Contains("11 300 kg", texts);
         Assert.Contains("15 140 kg", texts);
+        Assert.Contains("Falu 0130/3 Hrsz", texts);
         Assert.DoesNotContain(texts, t => t.Length == 0);   // stored tare not used -> field omitted
         Assert.Single(items.OfType<TicketLine>());
     }

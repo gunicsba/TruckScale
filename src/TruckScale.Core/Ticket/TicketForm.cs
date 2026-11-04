@@ -25,7 +25,8 @@ public static partial class TicketForm
         DateIn = 33, DateOut = 34, TimeIn = 35, TimeOut = 36,
         PartnerName = 15, PartnerAddress = 14, Plate = 30, Driver = 31,
         Material = 26, MaterialNote = 27, Marking = 28,
-        Gross = 4, Net = 5, Tare = 6, Operator = 25, Note = 32,
+        Gross = 4, Net = 5, Tare = 6, Operator = 25,
+        CompanyNote = 32,    // printed between Átadó and Átvevő, e.g. "… 0130/3 Hrsz"
         StoredTare = 43, MeasuredWeight = 44,
         CompanyHeader = 90,  // new: company name and address from the settings
         DirectionText = 91;  // new: Beszállítás / Kiszállítás
@@ -94,6 +95,7 @@ public static partial class TicketForm
                 Marking => w.Marking ?? "",
                 Gross => Kg(w.Gross), Net => Kg(w.Net), Tare => Kg(w.Tare),
                 Operator => settings.GetValueOrDefault("operator.name") ?? "",
+                CompanyNote => settings.GetValueOrDefault("company.note") ?? "",
                 StoredTare => w.StoredTare ? Kg(w.Tare) : "",
                 MeasuredWeight => Kg(w.SecondWeight ?? w.FirstWeight),
                 CompanyHeader => company,
@@ -135,7 +137,7 @@ public static partial class TicketForm
             F(Gross, 15, 89 + dy, 'L', 12); F(Tare, 105, 89 + dy, 'M', 12); F(Net, 195, 89 + dy, 'R', 12);
             F(Line, 15, 97 + dy, 'L', 2, width: 180);
             F(StaticText, 50, 116 + dy, 'M', 10, "........................................"); F(StaticText, 160, 116 + dy, 'M', 10, "........................................");
-            F(StaticText, 50, 121 + dy, 'M', 10, "Átadó"); F(StaticText, 160, 121 + dy, 'M', 10, "Átvevő");
+            F(StaticText, 50, 121 + dy, 'M', 10, "Átadó"); F(CompanyNote, 105, 121 + dy, 'M', 10); F(StaticText, 160, 121 + dy, 'M', 10, "Átvevő");
         }
         return sb.ToString();
     }

@@ -144,10 +144,15 @@ public sealed class TicketPreviewWindow : Window
 
         var print = new Button { Content = "Nyomtatás", MinWidth = 120, IsDefault = true };
         var close = new Button { Content = "Bezárás", MinWidth = 100, IsCancel = true };
-        var info = new TextBlock
+        var info = new StackPanel
         {
-            Classes = { "hint" }, VerticalAlignment = VerticalAlignment.Center,
-            Text = $"Nyomtató: {TicketService.PrinterName(state) ?? "alapértelmezett"}    Forma: {source}",
+            Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                new TextBlock { Text = "Nyomtató:", VerticalAlignment = VerticalAlignment.Center },
+                Printers.Chooser(state),
+                new TextBlock { Text = $"Forma: {System.IO.Path.GetFileName(source)}", Classes = { "hint" }, VerticalAlignment = VerticalAlignment.Center },
+            },
         };
         print.Click += async (_, _) =>
         {

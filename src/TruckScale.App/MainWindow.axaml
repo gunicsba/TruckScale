@@ -50,7 +50,7 @@
             <TextBlock Text="Adatállomány" HorizontalAlignment="Center" />
           </StackPanel>
         </Button>
-        <Button Classes="tool" IsEnabled="False" ToolTip.Tip="Hamarosan">
+        <Button Classes="tool" Click="OnSettings" ToolTip.Tip="Nyomtató, mérlegjegy, cégadatok, mérleg">
           <StackPanel Spacing="4" HorizontalAlignment="Center">
             <PathIcon Width="40" Height="40" Foreground="#2a9d4b" Data="F1 M3,5 H21 V7 H3 Z M3,11 H21 V13 H3 Z M3,17 H21 V19 H3 Z M6,2.5 H10 V9.5 H6 Z M14,8.5 H18 V15.5 H14 Z M8,14.5 H12 V21.5 H8 Z" />
             <TextBlock Text="Beállítás" HorizontalAlignment="Center" />
