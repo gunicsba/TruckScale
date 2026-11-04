@@ -143,6 +143,7 @@ public sealed class TicketPreviewWindow : Window
 
     public TicketPreviewWindow(AppState state, Weighing w)
     {
+        WindowFit.ClampToScreen(this);
         Title = $"Mérlegjegy {w.TicketNo} – előnézet";
         Width = 980;
         Height = 760;

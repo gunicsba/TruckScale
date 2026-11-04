@@ -95,3 +95,27 @@ public static class Dialog
         return win.ShowDialog<string?>(owner);
     }
 }
+
+public static class WindowFit
+{
+    /// <summary>Shrinks a window to the screen's working area (above the taskbar) and centres it.</summary>
+    public static void ClampToScreen(Window w)
+    {
+        w.Opened += (_, _) =>
+        {
+            var screen = w.Screens.ScreenFromWindow(w) ?? w.Screens.Primary;
+            if (screen is null) return;
+            double scale = screen.Scaling;
+            // Width/Height are the client area; the frame (title bar, borders) comes on top of it.
+            var frame = w.FrameSize ?? new Size(w.Width + 16, w.Height + 40);
+            double extraW = Math.Max(0, frame.Width - w.Width), extraH = Math.Max(0, frame.Height - w.Height);
+            double maxW = screen.WorkingArea.Width / scale - extraW - 8, maxH = screen.WorkingArea.Height / scale - extraH - 8;
+            if (w.Width <= maxW && w.Height <= maxH) return;
+            w.Width = Math.Min(w.Width, maxW);
+            w.Height = Math.Min(w.Height, maxH);
+            w.Position = new PixelPoint(
+                screen.WorkingArea.X + (int)((screen.WorkingArea.Width - (w.Width + extraW) * scale) / 2),
+                screen.WorkingArea.Y + (int)((screen.WorkingArea.Height - (w.Height + extraH) * scale) / 2));
+        };
+    }
+}

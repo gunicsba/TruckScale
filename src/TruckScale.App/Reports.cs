@@ -27,6 +27,7 @@ public sealed class LogWindow : Window
 
     public LogWindow(AppState state)
     {
+        WindowFit.ClampToScreen(this);
         _state = state;
         Title = "Napló – összes mérés";
         Width = 1500;
@@ -198,6 +199,7 @@ public sealed class SummaryWindow : Window
 
     public SummaryWindow(AppState state)
     {
+        WindowFit.ClampToScreen(this);
         _state = state;
         Title = "Áttekintés – összesítő";
         Width = 1180;
@@ -561,8 +563,9 @@ public sealed class ReportPreviewWindow : Window
 {
     public ReportPreviewWindow(AppState state, ReportDoc doc)
     {
+        WindowFit.ClampToScreen(this);
         Title = $"{doc.Title} – előnézet";
-        Width = 860;
+        Width = 980;
         Height = 860;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var pages = new StackPanel { Spacing = 16, Margin = new Thickness(20), HorizontalAlignment = HorizontalAlignment.Center };
@@ -588,21 +591,41 @@ public sealed class ReportPreviewWindow : Window
             else Close();
         };
         close.Click += (_, _) => Close();
+        // Zoom like the ticket preview: 100% = A4 at screen size (≈ 794 px wide); "Egész oldal" fits one page.
+        const double FullWidth = 794, Ratio = 1754.0 / 1240.0;
+        var scroller = new ScrollViewer { Background = Brushes.Gray, Content = pages, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
+        var zoomText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MinWidth = 44 };
+        void SetWidth(double w)
+        {
+            pageWidth = Math.Clamp(w, 240, 2400);
+            foreach (var i in imgs) i.Width = pageWidth;
+            zoomText.Text = $"{pageWidth / FullWidth * 100:0}%";
+        }
+        void Fit()
+        {
+            double h = scroller.Bounds.Height - 40, w = scroller.Bounds.Width - 40;
+            if (h > 0 && w > 0) SetWidth(Math.Min(w, h / Ratio));
+        }
         var zoomOut = new Button { Content = "−", MinWidth = 36 };
         var zoomIn = new Button { Content = "+", MinWidth = 36 };
-        void Zoom(double factor)
+        var fit = new Button { Content = "Egész oldal" };
+        zoomOut.Click += (_, _) => SetWidth(pageWidth / 1.25);
+        zoomIn.Click += (_, _) => SetWidth(pageWidth * 1.25);
+        fit.Click += (_, _) => Fit();
+        scroller.AddHandler(PointerWheelChangedEvent, (_, e) =>
         {
-            pageWidth = Math.Clamp(pageWidth * factor, 300, 1240);
-            foreach (var i in imgs) i.Width = pageWidth;
-        }
-        zoomOut.Click += (_, _) => Zoom(1 / 1.25);
-        zoomIn.Click += (_, _) => Zoom(1.25);
+            if (!e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
+            SetWidth(pageWidth * (e.Delta.Y > 0 ? 1.1 : 1 / 1.1));
+            e.Handled = true;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        Opened += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(Fit, Avalonia.Threading.DispatcherPriority.Loaded);
+        SetWidth(pageWidth);
         var bar = new StackPanel
         {
             Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8), HorizontalAlignment = HorizontalAlignment.Right,
             Children =
             {
-                zoomOut, zoomIn,
+                zoomOut, zoomText, zoomIn, fit,
                 new TextBlock { Text = $"   {images.Count} oldal    Nyomtató:", VerticalAlignment = VerticalAlignment.Center },
                 Printers.Chooser(state), close, print,
             },
@@ -610,7 +633,7 @@ public sealed class ReportPreviewWindow : Window
         var root = new DockPanel();
         DockPanel.SetDock(bar, Dock.Bottom);
         root.Children.Add(bar);
-        root.Children.Add(new ScrollViewer { Background = Brushes.Gray, Content = pages });
+        root.Children.Add(scroller);
         Content = root;
     }
 }
