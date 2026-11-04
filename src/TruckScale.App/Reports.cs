@@ -123,6 +123,11 @@ public sealed class SummaryWindow : Window
     private readonly ComboBox _dir = new() { ItemsSource = new[] { "Mind", "Beszállítás", "Kiszállítás" }, SelectedIndex = 0, MinWidth = 140 };
     private readonly ComboBox _partner = new() { MinWidth = 260 };
     private readonly ComboBox _material = new() { MinWidth = 200 };
+    private readonly ComboBox _grouping = new()
+    {
+        ItemsSource = new[] { "Anyagonként", "Anyagonként és ügyfelenként", "Ügyfelenként és anyagonként" }, SelectedIndex = 1, MinWidth = 240,
+    };
+    private SummaryGrouping Grouping => (SummaryGrouping)Math.Max(0, _grouping.SelectedIndex);
     private readonly CheckBox _itemized = new() { Content = "Tételes lista is (minden mérlegjegy)", IsChecked = true };
     private readonly DataGrid _grid = new() { IsReadOnly = true, CanUserSortColumns = true, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal };
     private readonly TextBlock _total = new() { FontWeight = FontWeight.Bold, FontSize = 15 };
@@ -147,10 +152,13 @@ public sealed class SummaryWindow : Window
         _from.SelectedDate = new DateTime(today.Year, 1, 1);
         _to.SelectedDate = today;
 
-        foreach (var (h, p, f) in new[] { ("Irány", "DirectionText", null), ("Anyag", "Material", null), ("Mérések", "Count", null),
+        foreach (var (h, p, f) in new[] { ("Irány", "DirectionText", null), ("Anyag", "Level1", null), ("Ügyfél", "Level2", null), ("Mérések", "Count", null),
                      ("Bruttó (kg)", "Gross", "{0:N0}"), ("Tára (kg)", "Tare", "{0:N0}"), ("Nettó (kg)", "Net", "{0:N0}") })
             _grid.Columns.Add(new DataGridTextColumn { Header = h, Binding = new Binding(p) { StringFormat = f }, SortMemberPath = p,
-                Width = p == "Material" ? new DataGridLength(1, DataGridLengthUnitType.Star) : DataGridLength.Auto });
+                Width = p is "Level1" or "Level2" ? new DataGridLength(1, DataGridLengthUnitType.Star) : DataGridLength.Auto });
+        // Subtotal lines in bold.
+        _grid.LoadingRow += (_, e) => e.Row.FontWeight = e.Row.DataContext is SummaryRow { IsSubtotal: true } ? FontWeight.Bold : FontWeight.Normal;
+        _grouping.SelectionChanged += (_, _) => Recalc();
 
         _from.SelectedDateChanged += (_, _) => Recalc();
         _to.SelectedDateChanged += (_, _) => Recalc();
@@ -190,6 +198,7 @@ public sealed class SummaryWindow : Window
             {
                 new WrapPanel { Children = { Labeled("Időszak", _from), new TextBlock { Text = " – ", VerticalAlignment = VerticalAlignment.Center }, _to, new Border { Width = 12 }, quick } },
                 new WrapPanel { Children = { Labeled("Irány", _dir), new Border { Width = 16 }, Labeled("Ügyfél", _partner), new Border { Width = 16 }, Labeled("Anyag", _material) } },
+                new WrapPanel { Children = { Labeled("Csoportosítás", _grouping) } },
             },
         };
 
@@ -222,10 +231,22 @@ public sealed class SummaryWindow : Window
     private void Recalc()
     {
         _rows = Summary.Select(_all, CurrentFilter());
-        _grid.ItemsSource = Summary.ByMaterial(_rows);
+        var (h1, h2) = Headers();
+        _grid.Columns[1].Header = h1;
+        _grid.Columns[2].Header = h2 ?? "";
+        _grid.Columns[2].IsVisible = h2 is not null;
+        _grid.CanUserSortColumns = Grouping == SummaryGrouping.Material; // keep subtotals under their group
+        _grid.ItemsSource = Summary.Build(_rows, Grouping);
         var t = Summary.Total(_rows);
         _total.Text = $"Összesen: {t.Count} mérés    Bruttó {t.Gross:N0} kg    Tára {t.Tare:N0} kg    Nettó {t.Net:N0} kg";
     }
+
+    private (string, string?) Headers() => Grouping switch
+    {
+        SummaryGrouping.MaterialPartner => ("Anyag", "Ügyfél"),
+        SummaryGrouping.PartnerMaterial => ("Ügyfél", "Anyag"),
+        _ => ("Anyag", null),
+    };
 
     private async Task Print()
     {
@@ -255,11 +276,25 @@ public sealed class SummaryWindow : Window
         };
         var sections = new List<ReportSection>();
         var t = Summary.Total(_rows);
-        sections.Add(new ReportSection("Összesítés anyagonként",
-            [new("Irány", 30, TextAlign.Left), new("Anyag", 60, TextAlign.Left), new("Mérés", 15, TextAlign.Right),
-             new("Bruttó (kg)", 25, TextAlign.Right), new("Tára (kg)", 25, TextAlign.Right), new("Nettó (kg)", 25, TextAlign.Right)],
-            Summary.ByMaterial(_rows).Select(g => new[] { g.DirectionText, g.Material, g.Count.ToString(), N(g.Gross), N(g.Tare), N(g.Net) }).ToList(),
-            ["Összesen", "", t.Count.ToString(), N(t.Gross), N(t.Tare), N(t.Net)]));
+        var (h1, h2) = Headers();
+        var summary = Summary.Build(_rows, Grouping);
+        List<ReportColumn> cols = h2 is null
+            ? [new("Irány", 26, TextAlign.Left), new(h1, 64, TextAlign.Left), new("Mérés", 15, TextAlign.Right),
+               new("Bruttó (kg)", 25, TextAlign.Right), new("Tára (kg)", 25, TextAlign.Right), new("Nettó (kg)", 25, TextAlign.Right)]
+            : [new("Irány", 22, TextAlign.Left), new(h1, 38, TextAlign.Left), new(h2, 45, TextAlign.Left), new("Mérés", 12, TextAlign.Right),
+               new("Bruttó (kg)", 21, TextAlign.Right), new("Tára (kg)", 21, TextAlign.Right), new("Nettó (kg)", 21, TextAlign.Right)];
+        string[] Cells(SummaryRow r) => h2 is null
+            ? [r.DirectionText, r.Level1, r.Count.ToString(), N(r.Gross), N(r.Tare), N(r.Net)]
+            : [r.IsSubtotal ? "" : r.DirectionText, r.IsSubtotal ? r.Level1 + " összesen" : r.Level1, r.IsSubtotal ? "" : r.Level2 ?? "",
+               r.Count.ToString(), N(r.Gross), N(r.Tare), N(r.Net)];
+        string[] total = h2 is null
+            ? ["Összesen", "", t.Count.ToString(), N(t.Gross), N(t.Tare), N(t.Net)]
+            : ["Összesen", "", "", t.Count.ToString(), N(t.Gross), N(t.Tare), N(t.Net)];
+        sections.Add(new ReportSection($"Összesítés – {_grouping.SelectedItem}", cols, summary.Select(Cells).ToList(), total)
+        {
+            BoldRows = summary.Select((r, i) => (r, i)).Where(x => x.r.IsSubtotal).Select(x => x.i).ToHashSet(),
+            SpaceAfterBold = true,
+        });
         if (_itemized.IsChecked == true)
             sections.Add(new ReportSection("Tételes lista",
                 [new("Jegy", 11, TextAlign.Left), new("Dátum", 25, TextAlign.Left), new("Irány", 8, TextAlign.Left), new("Rendszám", 26, TextAlign.Left),
@@ -275,7 +310,13 @@ public sealed class SummaryWindow : Window
 // ============================================================================ printing of lists
 
 public sealed record ReportColumn(string Header, double Width, TextAlign Align);
-public sealed record ReportSection(string Title, List<ReportColumn> Columns, List<string[]> Rows, string[]? TotalRow);
+public sealed record ReportSection(string Title, List<ReportColumn> Columns, List<string[]> Rows, string[]? TotalRow)
+{
+    /// <summary>Row indexes printed in bold (subtotals).</summary>
+    public HashSet<int> BoldRows { get; init; } = [];
+    /// <summary>Leave a small gap after each bold row (separates the groups).</summary>
+    public bool SpaceAfterBold { get; init; }
+}
 public sealed record ReportDoc(string Title, List<string> HeaderLines, List<ReportSection> Sections);
 
 /// <summary>Prints a multi-page table report on A4 portrait (Windows).</summary>
@@ -284,7 +325,7 @@ public static class ReportPrinter
     private const float Left = 15, Top = 15, Bottom = 280, LineH = 4.6f;
 
     private enum Kind { Title, Header, Gap, SectionTitle, ColHeader, Row, Total }
-    private sealed record PLine(Kind Kind, ReportSection? Section = null, string[]? Cells = null, string? Text = null);
+    private sealed record PLine(Kind Kind, ReportSection? Section = null, string[]? Cells = null, string? Text = null, bool Bold = false);
 
     public static string? Print(ReportDoc doc, AppState state)
     {
@@ -327,7 +368,12 @@ public static class ReportPrinter
             lines.Add(new PLine(Kind.Gap));
             lines.Add(new PLine(Kind.SectionTitle, s, Text: s.Title));
             lines.Add(new PLine(Kind.ColHeader, s));
-            lines.AddRange(s.Rows.Select(r => new PLine(Kind.Row, s, r)));
+            for (int i = 0; i < s.Rows.Count; i++)
+            {
+                bool isBold = s.BoldRows.Contains(i);
+                lines.Add(new PLine(Kind.Row, s, s.Rows[i], Bold: isBold));
+                if (isBold && s.SpaceAfterBold && i < s.Rows.Count - 1) lines.Add(new PLine(Kind.Gap));
+            }
             if (s.TotalRow is not null) lines.Add(new PLine(Kind.Total, s, s.TotalRow));
         }
 
@@ -377,6 +423,8 @@ public static class ReportPrinter
                 y += LineH + 0.5f;
             }
 
+            // A new page never starts with an empty line.
+            while (page > 1 && next < lines.Count && lines[next].Kind == Kind.Gap) next++;
             // Continuing a table on a new page: repeat its column header.
             if (page > 1 && next < lines.Count && lines[next].Kind is Kind.Row or Kind.Total) ColHeader(lines[next].Section!);
 
@@ -392,7 +440,7 @@ public static class ReportPrinter
                     case Kind.Gap: y += LineH; break;
                     case Kind.SectionTitle: g.DrawString(l.Text, mid, System.Drawing.Brushes.Black, Left, y); y += 6; break;
                     case Kind.ColHeader: ColHeader(l.Section!); break;
-                    case Kind.Row: Cells(l.Section!, l.Cells!, normal); y += LineH; break;
+                    case Kind.Row: Cells(l.Section!, l.Cells!, l.Bold ? bold : normal); y += LineH; break;
                     case Kind.Total:
                         g.DrawLine(pen, Left, y, Left + (float)l.Section!.Columns.Sum(c => c.Width), y);
                         y += 0.5f;

@@ -48,3 +48,37 @@ public class SummaryTests
         Assert.Equal(new SummaryTotal(4, 101000, 44000, 57000), Summary.Total(rows));
     }
 }
+
+public class SummaryGroupingTests
+{
+    private static Weighing W(string material, long partner, string partnerName, int net) => new()
+    {
+        TicketNo = 1, ClosedAt = new DateTime(2026, 7, 1), Direction = Direction.In, Status = WeighingStatus.Done,
+        MaterialName = material, PartnerId = partner, PartnerName = partnerName, Gross = net + 10000, Tare = 10000, Net = net,
+    };
+
+    private static readonly List<Weighing> Data =
+    [
+        W("Búza", 1, "Kiss", 10000), W("búza", 2, "Nagy", 30000), W("Búza", 1, "Kiss", 5000), W("Árpa", 1, "Kiss", 7000),
+    ];
+
+    [Fact]
+    public void Material_then_partner_with_subtotals()
+    {
+        var r = Summary.Build(Data, SummaryGrouping.MaterialPartner);
+        Assert.Equal(
+            [("Árpa", "Kiss", false, 7000L), ("Árpa", "Összesen", true, 7000L),
+             ("Búza", "Nagy", false, 30000L), ("Búza", "Kiss", false, 15000L), ("Búza", "Összesen", true, 45000L)],
+            r.Select(x => (x.Level1, x.Level2!, x.IsSubtotal, x.Net)));
+        Assert.Equal(3, r[4].Count);
+    }
+
+    [Fact]
+    public void Partner_then_material()
+    {
+        var r = Summary.Build(Data, SummaryGrouping.PartnerMaterial);
+        Assert.Equal(
+            [("Kiss", "Búza", 15000L), ("Kiss", "Árpa", 7000L), ("Kiss", "Összesen", 22000L), ("Nagy", "Búza", 30000L), ("Nagy", "Összesen", 30000L)],
+            r.Select(x => (x.Level1, x.Level2!, x.Net)));
+    }
+}
