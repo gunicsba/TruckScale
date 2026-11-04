@@ -26,7 +26,7 @@ public static partial class TicketForm
         PartnerName = 15, PartnerAddress = 14, Plate = 30, Driver = 31,
         Material = 26, MaterialNote = 27, Marking = 28,
         Gross = 4, Net = 5, Tare = 6, Operator = 25,
-        CompanyNote = 32,    // printed between Átadó and Átvevő, e.g. "… 0130/3 Hrsz"
+        CompanyNote = 32,    // printed between Átadó and Átvevő, e.g. "… 0123/4 Hrsz"
         StoredTare = 43, MeasuredWeight = 44,
         CompanyHeader = 90,  // new: company name and address from the settings
         DirectionText = 91;  // new: Beszállítás / Kiszállítás

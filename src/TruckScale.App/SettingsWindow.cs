@@ -86,7 +86,7 @@ public sealed class SettingsWindow : Window
             Row("Utca", Field("company.street", s)),
             Row("Település", TownZip(Field("company.town", s), Field("company.zip", s))),
             Row("Megjegyzés", Field("company.note", s)),
-            Hint("A megjegyzés (pl. „… 0130/3 Hrsz”) az Átadó és Átvevő között jelenik meg."),
+            Hint("A megjegyzés (pl. „… 0123/4 Hrsz”) az Átadó és Átvevő között jelenik meg."),
             Row("Adószám", Field("company.tax_no", s)),
             Row("Kezelő neve", Field("operator.name", s))));
         form.Children.Add(Section("Mérleg",

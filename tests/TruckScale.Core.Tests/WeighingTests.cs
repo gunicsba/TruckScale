@@ -17,7 +17,7 @@ public sealed class WeighingTests : IDisposable
         File.Delete(_path);
     }
 
-    private static WeighingDraft Draft(Direction dir = Direction.In, string plate = "NLB381/YKK063") =>
+    private static WeighingDraft Draft(Direction dir = Direction.In, string plate = "ABC123/XYZ063") =>
         new(dir, "Teszt Ügyfél", plate, "Teszt Sofőr", "Árpa", null);
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class WeighingTests : IDisposable
         Assert.Equal(1, done.TicketNo);
         Assert.Empty(_db.OpenWeighings());
 
-        var v = _db.FindVehicle("NLB-381/YKK-063")!;
+        var v = _db.FindVehicle("ABC-123/XYZ-063")!;
         Assert.Equal(11300, v.LastTare);
         Assert.Equal(done.DriverId, v.DefaultDriverId);
     }
@@ -51,7 +51,7 @@ public sealed class WeighingTests : IDisposable
     public void Same_truck_cannot_enter_twice()
     {
         _db.StartWeighing(Draft(), 20000, T0);
-        Assert.Throws<InvalidOperationException>(() => _db.StartWeighing(Draft(plate: "nlb 381 ykk 063"), 20000, T0));
+        Assert.Throws<InvalidOperationException>(() => _db.StartWeighing(Draft(plate: "abc 123 xyz 063"), 20000, T0));
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public sealed class WeighingTests : IDisposable
     {
         var a = _db.StartWeighing(Draft(), 20000, T0);
         _db.CloseWeighing(a.Id, 10000, T0.AddMinutes(1));
-        _db.StartWeighing(new WeighingDraft(Direction.In, "teszt ugyfel", "JOY-590", "TESZT SOFŐR", "árpa", "x"), 20000, T0.AddHours(1));
+        _db.StartWeighing(new WeighingDraft(Direction.In, "teszt ugyfel", "DEF-456", "TESZT SOFŐR", "árpa", "x"), 20000, T0.AddHours(1));
         Assert.Single(_db.Partners());
         Assert.Single(_db.Drivers());
         Assert.Single(_db.Materials());

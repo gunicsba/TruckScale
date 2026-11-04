@@ -43,16 +43,16 @@ public class ScaleReadingTests
 public class NormalizeTests
 {
     [Theory]
-    [InlineData("JOY-590/YJA-694", "JOY590/YJA694")]
-    [InlineData("JOY590-YJA694", "JOY590 YJA694")]
-    [InlineData("NLB381/YKKO63", "NLB-381/YKK-063")]
+    [InlineData("DEF-456/UVW-694", "DEF456/UVW694")]
+    [InlineData("DEF456-UVW694", "DEF456 UVW694")]
+    [InlineData("ABC123/XYZO63", "ABC-123/XYZ-063")]
     [InlineData("mkh-197", "MKH197")]
     public void Plate_spellings_match(string a, string b) =>
         Assert.Equal(Normalize.PlateKey(a), Normalize.PlateKey(b));
 
     [Fact]
     public void Different_plates_do_not_match() =>
-        Assert.NotEqual(Normalize.PlateKey("NLB381/YJA694"), Normalize.PlateKey("NLB831/YJA694"));
+        Assert.NotEqual(Normalize.PlateKey("ABC123/UVW694"), Normalize.PlateKey("ABC213/UVW694"));
 
     [Theory]
     [InlineData("Gunics Zsolt", "GUNICS   ZSOLT")]

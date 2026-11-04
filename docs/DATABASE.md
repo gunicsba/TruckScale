@@ -57,7 +57,7 @@ When the 2nd weighing happens, the row moves from here into `W_RECEIPTS`.
 #### `CARS` – registration plates, 133 rows
 `ID, ORG_ID, CAR_NUM, LAST_W_DATE, LAST_W_TIME, LAST_CAR_W (last tare), LAST_W_ARTICLE_ID, DEL_MARK`
 - **Tied to a customer** (`ORG_ID`), so the same truck was entered separately for each customer, with different spellings:
-  `JOY-590/YJA-694`, `JOY590/YJA694`, `JOY590-YJA694`, `JOY-590/YJA694` …
+  `DEF-456/UVW-694`, `DEF456/UVW694`, `DEF456-UVW694`, `DEF-456/UVW694` …
 - `LAST_CAR_W` is the tare used by the "Használ" checkbox.
 
 #### `DRIVERS` – drivers, 92 rows
@@ -113,7 +113,7 @@ settings (key/value)
 | Column | Type | Note |
 |---|---|---|
 | `id` | INTEGER PK | |
-| `plate` | TEXT NOT NULL | As displayed, e.g. `NLB381/YKK063` |
+| `plate` | TEXT NOT NULL | As displayed, e.g. `ABC123/XYZ063` |
 | `plate_key` | TEXT UNIQUE | Normalised: uppercase, letters and digits only, `O`→`0`. Prevents duplicates |
 | `last_tare` | INTEGER | Last tare (kg), used by "Használ" |
 | `last_tare_at` | TEXT | When it was measured |
@@ -186,7 +186,7 @@ Runs **once, on the Windows PC** (because of the Jet driver), and can be repeate
    | Customers | 27 | **24** ("UNKNOWN" dropped) | name, ignoring case and accents |
    | Materials | 23 | 23 | name + note |
    - For a merged plate, the displayed spelling is the one used in the most weighings, and `last_tare` is the tare from its latest weighing.
-   - Plates that differ by a real character are **not** merged automatically (e.g. `NLB831/YJA694` is probably a typo of `NLB381/YJA694`). The program will need a "merge" function for these.
+   - Plates that differ by a real character are **not** merged automatically (e.g. `ABC213/UVW694` is probably a typo of `ABC123/UVW694`). The program will need a "merge" function for these.
 3. `W_RECEIPTS` → `weighings` (`status = DONE`):
    - `OPER_TYPE` 2 → `IN`, 1 → `OUT`
    - `BRUTTO_W`/`CAR_W`/`ART_W` → `gross`/`tare`/`net`

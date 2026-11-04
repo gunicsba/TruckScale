@@ -45,7 +45,7 @@ public class TicketTests
     [Fact]
     public void Fills_in_the_weighing()
     {
-        var items = TicketForm.Layout(TicketForm.Parse(Sample), W, new Dictionary<string, string?> { ["company.note"] = "Falu 0130/3 Hrsz" });
+        var items = TicketForm.Layout(TicketForm.Parse(Sample), W, new Dictionary<string, string?> { ["company.note"] = "Falu 0123/4 Hrsz" });
         var texts = items.OfType<TicketText>().Select(t => t.Text.Replace(' ', ' ')).ToList();
         Assert.Contains("Mérlegjegy", texts);
         Assert.Contains("417", texts);
@@ -55,7 +55,7 @@ public class TicketTests
         Assert.Contains("26 440 kg", texts);
         Assert.Contains("11 300 kg", texts);
         Assert.Contains("15 140 kg", texts);
-        Assert.Contains("Falu 0130/3 Hrsz", texts);
+        Assert.Contains("Falu 0123/4 Hrsz", texts);
         Assert.DoesNotContain(texts, t => t.Length == 0);   // stored tare not used -> field omitted
         Assert.Single(items.OfType<TicketLine>());
     }

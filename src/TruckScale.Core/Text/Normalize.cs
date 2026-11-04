@@ -19,7 +19,7 @@ public static class Normalize
 
     /// <summary>
     /// Comparison key for registration plates: upper-case letters and digits only,
-    /// with the letter O treated as zero. "JOY-590/YJA-694" and "JOY590 YJA694" give the same key.
+    /// with the letter O treated as zero. "DEF-456/UVW-694" and "DEF456 UVW694" give the same key.
     /// </summary>
     public static string PlateKey(string? plate)
     {
