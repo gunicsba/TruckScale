@@ -32,16 +32,16 @@
             <TextBlock Text="Kiszállítás" HorizontalAlignment="Center" />
           </StackPanel>
         </Button>
-        <Button Classes="tool" x:Name="LeaveButton" Click="OnLeave" ToolTip.Tip="A kijelölt jármű távozása (2. mérés)">
-          <StackPanel Spacing="4" HorizontalAlignment="Center">
-            <PathIcon Width="40" Height="40" Foreground="#2a9d4b" Data="F1 M3,8 L8,3 V6 H18 V10 H8 V13 Z M21,16 L16,21 V18 H6 V14 H16 V11 Z" />
-            <TextBlock Text="Távozás" HorizontalAlignment="Center" />
-          </StackPanel>
-        </Button>
-        <Button Classes="tool" IsEnabled="False" ToolTip.Tip="Hamarosan">
+        <Button Classes="tool" Click="OnLog" ToolTip.Tip="Az összes mérés, mérlegjegy újranyomtatása">
           <StackPanel Spacing="4" HorizontalAlignment="Center">
             <PathIcon Width="40" Height="40" Foreground="#d4a017" Data="F1 M3,4 H21 V7 H3 Z M3,10.5 H21 V13.5 H3 Z M3,17 H21 V20 H3 Z" />
             <TextBlock Text="Napló" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="tool" Click="OnSummary" ToolTip.Tip="Összesítő egy időszakra, nyomtatható">
+          <StackPanel Spacing="4" HorizontalAlignment="Center">
+            <PathIcon Width="40" Height="40" Foreground="#2f6fd6" Data="F1 M5,3 H19 V7.5 H17 V5.5 H9.2 L14,12 L9.2,18.5 H17 V16.5 H19 V21 H5 V19.3 L10.6,12 L5,4.7 Z" />
+            <TextBlock Text="Áttekintés" HorizontalAlignment="Center" />
           </StackPanel>
         </Button>
         <Button Classes="tool" Click="OnData" ToolTip.Tip="Ügyfelek kezelése">
@@ -98,7 +98,7 @@
         </DataGrid>
       </TabItem>
       <TabItem x:Name="TodayTab" Header="Mai mérések">
-        <DataGrid x:Name="TodayGrid" IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="Horizontal" CanUserResizeColumns="True"
+        <DataGrid x:Name="TodayGrid" IsReadOnly="True" CanUserSortColumns="True" SelectionMode="Single" GridLinesVisibility="Horizontal" CanUserResizeColumns="True"
                   DoubleTapped="OnTodayDoubleTapped" ToolTip.Tip="Dupla kattintás: mérlegjegy (előnézet, újranyomtatás)">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Jegy" Binding="{Binding TicketNo}" />

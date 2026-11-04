@@ -50,7 +50,6 @@ public partial class MainWindow : Window
         var done = _state.Db.ClosedWeighings(today, today.AddDays(1));
         TodayGrid.ItemsSource = done;
         TodayTab.Header = $"Mai mérések ({done.Count(w => w.Status == WeighingStatus.Done)})";
-        LeaveButton.IsEnabled = open.Count > 0;
     }
 
     private async Task OpenWeighing(WeighingWindow win)
@@ -84,6 +83,9 @@ public partial class MainWindow : Window
         if (TodayGrid.SelectedItem is Weighing { Status: WeighingStatus.Done } w)
             await new TicketPreviewWindow(_state, w).ShowDialog(this);
     }
+
+    private async void OnLog(object? sender, RoutedEventArgs e) => await new LogWindow(_state).ShowDialog(this);
+    private async void OnSummary(object? sender, RoutedEventArgs e) => await new SummaryWindow(_state).ShowDialog(this);
 
     private async void OnSettings(object? sender, RoutedEventArgs e) => await new SettingsWindow(_state).ShowDialog(this);
 
