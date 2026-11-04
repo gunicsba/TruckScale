@@ -186,7 +186,7 @@ public sealed class TruckScaleDb : IDisposable
     private const string WeighingCols = """
         id, ticket_no, direction, status, partner_id, vehicle_id, driver_id, material_id,
         partner_name, partner_address, plate, driver_name, material_name, material_note, marking,
-        first_weight, first_at, second_weight, second_at, closed_at, gross, tare, net, stored_tare
+        first_weight, first_at, second_weight, second_at, closed_at, gross, tare, net, stored_tare, note
         """;
 
     private static Weighing ReadWeighing(SqliteDataReader r) => new()
@@ -200,6 +200,7 @@ public sealed class TruckScaleDb : IDisposable
         MaterialName = Str(r, 12), MaterialNote = Str(r, 13), Marking = Str(r, 14),
         FirstWeight = Int(r, 15), FirstAt = Dt(r, 16), SecondWeight = Int(r, 17), SecondAt = Dt(r, 18), ClosedAt = Dt(r, 19),
         Gross = Int(r, 20), Tare = Int(r, 21), Net = Int(r, 22), StoredTare = r.GetInt64(23) == 1,
+        Note = Str(r, 24),
     };
 
     public Weighing GetWeighing(long id) =>
@@ -256,8 +257,11 @@ public sealed class TruckScaleDb : IDisposable
         return GetWeighing(id);
     }
 
-    /// <summary>Second Mérés of a truck in the yard: closes the ticket and stores the vehicle's tare.</summary>
-    public Weighing CloseWeighing(long id, int weight, DateTime at)
+    /// <summary>
+    /// Second Mérés of a truck in the yard: closes the ticket and stores the vehicle's tare.
+    /// <paramref name="note"/> (if not null) replaces the weighing's note; empty text clears it.
+    /// </summary>
+    public Weighing CloseWeighing(long id, int weight, DateTime at, string? note = null)
     {
         using var tx = _c.BeginTransaction();
         var w = Query($"SELECT {WeighingCols} FROM weighings WHERE id = $id", ReadWeighing, tx, ("$id", id)).Single();
@@ -268,6 +272,8 @@ public sealed class TruckScaleDb : IDisposable
                 gross = $g, tare = $ta, net = $n WHERE id = $id
             """, tx, ("$t", NextTicketNo(tx)), ("$w", weight), ("$at", Schema.Ts(at)),
             ("$g", res.Gross), ("$ta", res.Tare), ("$n", res.Net), ("$id", id));
+        if (note is not null)
+            Exec("UPDATE weighings SET note = $note WHERE id = $id", tx, ("$note", Normalize.CleanOrNull(note)), ("$id", id));
         if (w.VehicleId is long vid)
             Exec("UPDATE vehicles SET last_tare = $t, last_tare_at = $at, default_driver_id = COALESCE($d, default_driver_id) WHERE id = $id",
                 tx, ("$t", res.Tare), ("$at", Schema.Ts(at)), ("$d", w.DriverId), ("$id", vid));
@@ -308,6 +314,7 @@ public sealed class TruckScaleDb : IDisposable
             ["material_name"] = v.Material?.Name,
             ["material_note"] = v.Material?.Note,
             ["marking"] = Normalize.CleanOrNull(d.Marking),
+            ["note"] = Normalize.CleanOrNull(d.Note),
         };
         foreach (var (k, val) in extra) values[k] = val;
         return InsertId($"INSERT INTO weighings({string.Join(",", values.Keys)}) VALUES ({string.Join(",", values.Keys.Select(k => "$" + k))})",

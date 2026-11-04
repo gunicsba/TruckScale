@@ -14,7 +14,7 @@ namespace TruckScale.App;
 /// <summary>Builds the ticket of a weighing from the configured .form file and prints it.</summary>
 public static class TicketService
 {
-    /// <summary>The configured form file, searched next to the database, then next to the program.</summary>
+    /// <summary>The configured form file, searched next to the database, then next to the program (and its forms\ folder).</summary>
     public static (List<FormField> Form, string Source) LoadForm(AppState state)
     {
         var name = state.Db.GetSetting("ticket.form");
@@ -26,6 +26,7 @@ public static class TicketService
                 {
                     System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(state.Db.Path))!, name),
                     System.IO.Path.Combine(AppContext.BaseDirectory, name),
+                    System.IO.Path.Combine(AppContext.BaseDirectory, "forms", name),
                     System.IO.Path.GetFullPath(name),
                 };
             foreach (var path in candidates)
@@ -81,10 +82,22 @@ public static class TicketService
             {
                 var ps = new PrinterSettings();
                 if (!string.IsNullOrWhiteSpace(printer)) ps.PrinterName = printer;
-                if (ps.IsValid) _ = ps.DefaultPageSettings.HardMarginX;
+                if (ps.IsValid) { _ = ps.DefaultPageSettings.HardMarginX; _ = ps.PaperSizes.Count; }
             }
             catch { /* only a speed-up */ }
         });
+    }
+
+    /// <summary>
+    /// Always print on A4: many drivers default to Letter (both HP entries here did), and the generic
+    /// "Microsoft IPP Class Driver" then scales the page down to fit.
+    /// </summary>
+    [SupportedOSPlatform("windows")]
+    internal static void UseA4(PrintDocument doc)
+    {
+        var a4 = doc.PrinterSettings.PaperSizes.Cast<PaperSize>().FirstOrDefault(p => p.Kind == PaperKind.A4);
+        if (a4 is not null) doc.DefaultPageSettings.PaperSize = a4;
+        doc.DefaultPageSettings.Landscape = false;
     }
 
     [SupportedOSPlatform("windows")]
@@ -97,6 +110,7 @@ public static class TicketService
             if (!doc.PrinterSettings.IsValid)
                 throw new InvalidOperationException(L.F("print.noPrinter", printer));
         }
+        UseA4(doc);
         var fonts = new Dictionary<double, System.Drawing.Font>();
         doc.EndPrint += (_, _) => { foreach (var f in fonts.Values) f.Dispose(); };
         doc.PrintPage += (_, e) =>

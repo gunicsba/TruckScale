@@ -114,7 +114,7 @@ public sealed class FilterBar : WrapPanel
         _partner = Box(L.T("f.customer"), 190);
         _driver = Box(L.T("f.driver"), 150);
         _material = Box(L.T("f.material"), 150);
-        _marking = Box(L.T("f.marking"), 140);
+        _marking = Box(L.T("filter.markingNote"), 160);
         var clear = new Button { Content = L.T("filter.clear"), VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(4, 0, 0, 0) };
         clear.Click += (_, _) =>
         {
@@ -171,6 +171,7 @@ public static class Grids
         Col(L.T("f.driver"), "DriverName");
         Col(L.T("f.material"), "MaterialName");
         Col(L.T("f.marking"), "Marking");
+        Col(L.T("f.note"), "Note");
         Col(L.T("f.gross"), "Gross", "{0:N0}");
         Col(L.T("f.tare"), "Tare", "{0:N0}");
         Col(L.T("f.net"), "Net", "{0:N0}");
@@ -444,6 +445,7 @@ public static class ReportPrinter
             if (!pd.PrinterSettings.IsValid)
                 throw new InvalidOperationException(L.F("print.noPrinter", printer));
         }
+        TicketService.UseA4(pd);
         using var pager = new Pager(doc, fontName, total);
         pd.PrintPage += (_, e) =>
         {

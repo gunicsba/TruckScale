@@ -30,7 +30,8 @@ public static partial class TicketForm
         CompanyNote = 32,    // printed between Átadó and Átvevő, e.g. "… 0123/4 Hrsz"
         StoredTare = 43, MeasuredWeight = 44,
         CompanyHeader = 90,  // new: company name and address from the settings
-        DirectionText = 91;  // new: Beszállítás / Kiszállítás
+        DirectionText = 91,  // new: Beszállítás / Kiszállítás
+        WeighingNote = 92;   // new: note of the weighing only
 
     
     [GeneratedRegex(@"^<(\d+)><(\d+)><(\d+)><(\d+)><([LMR])><(\d+)><(\d+)><(\d+)><([^>]*)><(.*)>\s*$")]
@@ -91,7 +92,8 @@ public static partial class TicketForm
                 Plate => w.Plate ?? "",
                 Driver => w.DriverName ?? "",
                 Material => w.MaterialName ?? "",
-                MaterialNote => w.MaterialNote ?? "",
+                MaterialNote => string.Join(" – ", new[] { w.MaterialNote, w.Note }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                WeighingNote => w.Note ?? "",
                 Marking => w.Marking ?? "",
                 Gross => Kg(w.Gross), Net => Kg(w.Net), Tare => Kg(w.Tare),
                 Operator => settings.GetValueOrDefault("operator.name") ?? "",

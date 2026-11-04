@@ -51,13 +51,14 @@ A **Beszállítás** vagy **Kiszállítás** gomb a „Jármű érkezése” abl
 
 | Mező | Tudnivaló |
 |---|---|
-| **Ügyfél** | Választani kell a listából. Gépelni is lehet, ilyenkor szűr a lista (az ékezet nem számít). A **↑ / ↓** nyíl lépteti az ügyfeleket. Alatta a cím csak olvasható. |
+| **Ügyfél** | Választani kell a listából. Gépelni is lehet, ilyenkor szűr a lista (az ékezet nem számít). A **↑ / ↓** nyíl lépteti az ügyfeleket. Alatta a cím csak olvasható, és ha az ügyfélnek van megjegyzése, az is látszik. |
 | **Új…** | Új ügyfél felvétele (név, cím, megjegyzés). |
 | **Szerkesztés…** | A kiválasztott ügyfél adatainak javítása. |
 | **Rendszám** | Választható vagy beírható. Új rendszámot a program magától felvesz. Ha a listából választod, a szokásos sofőrt is beírja. Az írásmód nem számít: „ABC-123/XYZ-456” = „abc123 xyz456”. |
 | **Tárolt tára / Használ** | A jármű utolsó mért üres súlya. Lásd [Használ](#használ-tárolt-tára-egy-mérés). |
 | **Sofőr, Anyag** | Választható vagy beírható. Az újakat a program felveszi. |
 | **Megjelölés** | Szabad szöveg, nem kötelező (pl. tábla, szerződésszám). Rákerül a jegyre. |
+| **Megjegyzés** | A mérés saját megjegyzése (pl. „szárítóba”, nedvesség). Távozáskor is javítható, és rákerül a mérlegjegyre. |
 
 ![Új ügyfél](images/new-customer.png)
 
@@ -73,7 +74,7 @@ Amikor a jármű távozik, a főablak **Udvaron** listájában **dupla kattintá
 
 ![Jármű távozása](images/departure.png)
 
-Itt már semmi nem módosítható, csak a második mérés történik meg:
+Itt már csak a **Megjegyzés** módosítható (lezáráskor elmentődik), minden más rögzített:
 
 - **Mérés + nyomtatás** (és az **Enter** is): lemér, lezárja a jegyet, kinyomtatja a mérlegjegyet, és bezárja az ablakot. A nyomtatás ideje alatt a jegyszám és a nettó súly látszik.
 - **Mérés:** csak lezár és megmutatja az eredményt. A **Nyomtatás** gombbal ugyanott ki lehet nyomtatni.
@@ -145,7 +146,12 @@ Az **Előnézet** a nyomtatandó oldalakat mutatja, a **Nyomtatás** kinyomtatja
 ![Beállítás](images/settings.png)
 
 - **Nyomtató:** a mérlegjegyek és az összesítők nyomtatója. Az előnézet ablakokban is át lehet állítani.
-- **Forma fájl:** a mérlegjegy elrendezése (a régi program `.form` fájljai is jók). Ha üresen marad, a beépített mintát használja: két jegy egy A4-es lapon.
+- **Forma fájl:** a mérlegjegy elrendezése (a régi program `.form` fájljai is jók). Ha üresen marad, a beépített mintát használja: két jegy egy A4-es lapon. A program mellett lévő `forms` mappában kész minták vannak, ezek név szerint is megadhatók:
+  - `ket-jegy-A4.form`: két jegy egy A4-es lapon (kettévágható),
+  - `egy-jegy-A4.form`: egy jegy a lap tetején,
+  - `two-tickets-A4-en.form`: két jegy angolul.
+
+  A minták a cégnevet és -címet, valamint a megjegyzést (pl. hrsz) a Beállításból veszik, így bármelyik gazdaság használhatja őket.
 - **Cég:** a jegy fejlécében szereplő adatok. A **Megjegyzés** (pl. „… 0123/4 Hrsz”) az Átadó és Átvevő aláírás között jelenik meg.
 - **Mérleg:** soros port és sebesség (a mérleg 9600 baudon küld), valamint a **Szimulátor** mérleg nélküli próbához. A mérleg beállításai a program újraindítása után lépnek életbe.
 
@@ -166,6 +172,8 @@ Az **Előnézet** a nyomtatandó oldalakat mutatja, a **Nyomtatás** kinyomtatja
 - „A mérleg nem stabil”,
 - „Válassza ki az ügyfelet”,
 - „A mérleg üres”.
+
+**Kicsinyítve (pl. 60%-on) nyomtat.** A program mindig A4-es lapot kér. Ha a nyomtató ennek ellenére kicsinyít, a Beállításban válaszd a nyomtató **saját illesztőprogramos** bejegyzését (pl. „NPI04DBCD (HP LaserJet …)”) a Windows általános bejegyzése helyett. Az általános bejegyzés a „Microsoft IPP Class Driver”, ez lapra igazítással kicsinyíthet.
 
 **Lassú az első nyomtatás.** A nyomtató illesztőprogramjának első betöltése 10 másodperc körül is lehet. A program ezt indításkor a háttérben elvégzi, utána a nyomtatás gyors. Ha tartósan lassú, próbáld ki a Beállításban ugyanannak a nyomtatónak a másik bejegyzését (pl. hálózati helyett USB-s).
 

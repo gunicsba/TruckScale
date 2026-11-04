@@ -11,6 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Sample ticket layouts, shipped next to the program in forms\ -->
+    <None Include="..\..\forms\*.form" Link="forms\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\TruckScale.Core\TruckScale.Core.csproj" />
   </ItemGroup>
 

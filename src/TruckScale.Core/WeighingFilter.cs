@@ -23,7 +23,7 @@ public sealed record WeighingFilter(
         Has(Partner, w.PartnerName) &&
         Has(Driver, w.DriverName) &&
         Has(Material, $"{w.MaterialName} {w.MaterialNote}") &&
-        Has(Marking, w.Marking);
+        Has(Marking, $"{w.Marking} {w.Note}");
 
     private static bool Has(string? search, string? value) =>
         string.IsNullOrWhiteSpace(search) || Normalize.NameKey(value).Contains(Normalize.NameKey(search));

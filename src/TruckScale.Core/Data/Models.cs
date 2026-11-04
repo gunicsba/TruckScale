@@ -40,7 +40,8 @@ public sealed record WeighingDraft(
     string? DriverName,
     string? MaterialName,
     string? Marking,
-    PartnerDetails? Partner = null);
+    PartnerDetails? Partner = null,
+    string? Note = null);
 
 public sealed record Weighing
 {
@@ -68,6 +69,8 @@ public sealed record Weighing
     public int? Tare { get; init; }
     public int? Net { get; init; }
     public bool StoredTare { get; init; }
+    /// <summary>Note of this weighing (editable at both weighings, printed on the ticket).</summary>
+    public string? Note { get; init; }
 
     public string DirectionText => L.T(Direction == Direction.In ? "dir.in" : "dir.out");
     public string StatusText => L.T(Status switch { WeighingStatus.Open => "status.open", WeighingStatus.Void => "status.void", _ => "status.done" });

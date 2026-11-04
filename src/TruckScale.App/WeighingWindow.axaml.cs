@@ -55,8 +55,13 @@ public partial class WeighingWindow : Window
         DriverBox.Text = open.DriverName;
         MaterialBox.Text = MaterialText(open);
         MarkingBox.Text = open.Marking;
+        NoteBox.Text = open.Note;
 
-        if (_partners.FirstOrDefault(p => p.Id == open.PartnerId) is { } partner) FillDetails(partner);
+        if (_partners.FirstOrDefault(p => p.Id == open.PartnerId) is { } partner)
+        {
+            FillDetails(partner);
+            PartnerInfo.Text = string.IsNullOrWhiteSpace(partner.Note) ? "" : L.F("w.partnerNote", partner.Note);
+        }
         PartnerNew.IsVisible = PartnerEdit.IsVisible = false;
         foreach (var c in new Control[] { DirIn, DirOut, PartnerBox, PartnerList,
                      PlateBox, PlateList, DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox })
@@ -135,7 +140,6 @@ public partial class WeighingWindow : Window
         StreetBox.Text = p?.Street;
         TownBox.Text = p?.Town;
         ZipBox.Text = p?.Zip;
-        PartnerNoteBox.Text = p?.Note;
         _detailsFor = p?.Id;
     }
 
@@ -203,7 +207,6 @@ public partial class WeighingWindow : Window
     {
         if (_open is not null)
         {
-            PartnerInfo.Text = "";
             TareInfo.Text = "";
             MaterialInfo.Text = "";
             UpdateHint();
@@ -214,9 +217,9 @@ public partial class WeighingWindow : Window
         // Switching to another known customer loads its details; switching to a new name clears them.
         if (p is not null && p.Id != _detailsFor) FillDetails(p);
         else if (p is null && _detailsFor is not null) { FillDetails(null); }
-        PartnerInfo.Text = p is null && !string.IsNullOrWhiteSpace(PartnerBox.Text)
-            ? L.T("w.unknownPartnerInfo")
-            : "";
+        PartnerInfo.Text = p is null
+            ? (string.IsNullOrWhiteSpace(PartnerBox.Text) ? "" : L.T("w.unknownPartnerInfo"))
+            : (string.IsNullOrWhiteSpace(p.Note) ? "" : L.F("w.partnerNote", p.Note));
         PartnerEdit.IsEnabled = p is not null;
 
         var v = CurrentVehicle;
@@ -305,12 +308,12 @@ public partial class WeighingWindow : Window
                 if (Math.Abs(weight - (_open.FirstWeight ?? 0)) < 200 &&
                     !await Dialog.Confirm(this, L.T("w.weigh"), L.F("w.similar", AppState.Kg(_open.FirstWeight), AppState.Kg(weight))))
                     return null;
-                return _state.Db.CloseWeighing(_open.Id, weight, now);
+                return _state.Db.CloseWeighing(_open.Id, weight, now, NoteBox.Text ?? "");
             }
 
             var draft = new WeighingDraft(
                 DirIn.IsChecked == true ? Direction.In : Direction.Out,
-                CurrentPartner!.Name, PlateBox.Text ?? "", DriverBox.Text, MaterialBox.Text, MarkingBox.Text);
+                CurrentPartner!.Name, PlateBox.Text ?? "", DriverBox.Text, MaterialBox.Text, MarkingBox.Text, Note: NoteBox.Text);
 
             if (UseStoredTare.IsChecked == true)
                 return _state.Db.SingleWeighing(draft, weight, now);
@@ -337,7 +340,7 @@ public partial class WeighingWindow : Window
     {
         _done = w;
         foreach (var c in new Control[] { DirIn, DirOut, PartnerBox, PartnerList, PartnerNew, PartnerEdit, PlateBox, PlateList,
-                     DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox })
+                     DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox, NoteBox })
             c.IsEnabled = false;
         VoidButton.IsVisible = false;
         CancelButton.Content = L.T("common.close");

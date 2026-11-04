@@ -8,7 +8,7 @@
   <Grid Margin="16" ColumnDefinitions="*,24,360" RowDefinitions="Auto,Auto">
 
     <!-- Left: what is being weighed -->
-    <Grid Grid.Column="0" ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
+    <Grid Grid.Column="0" ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
       <TextBlock Grid.Row="0" Classes="label" Text="{l:T f.direction}" />
       <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="16">
         <RadioButton x:Name="DirIn" GroupName="dir" Content="{l:T dir.in}" />
@@ -32,8 +32,6 @@
         <TextBlock Grid.Column="1" Classes="label" Text="{l:T f.zip}" FontWeight="Normal" Margin="12,0,8,0" />
         <TextBox Grid.Column="2" x:Name="ZipBox" Classes="ro" IsReadOnly="True" Focusable="False" />
       </Grid>
-      <TextBlock Grid.Row="4" Classes="label" Text="{l:T f.note}" FontWeight="Normal" Margin="12,0,8,0" />
-      <TextBox Grid.Row="4" Grid.Column="1" x:Name="PartnerNoteBox" Classes="ro" IsReadOnly="True" Focusable="False" />
       <TextBlock Grid.Row="5" Grid.Column="1" x:Name="PartnerInfo" Classes="hint" />
 
       <TextBlock Grid.Row="6" Classes="label" Text="{l:T f.plate}" />
@@ -61,6 +59,10 @@
 
       <TextBlock Grid.Row="11" Classes="label" Text="{l:T f.marking}" />
       <TextBox Grid.Row="11" Grid.Column="1" x:Name="MarkingBox" PlaceholderText="{l:T w.markingPlaceholder}" />
+
+      <!-- Note of this weighing: editable at both weighings, printed on the ticket -->
+      <TextBlock Grid.Row="12" Classes="label" Text="{l:T f.note}" />
+      <TextBox Grid.Row="12" Grid.Column="1" x:Name="NoteBox" PlaceholderText="{l:T w.notePlaceholder}" />
     </Grid>
 
     <!-- Right: weights -->

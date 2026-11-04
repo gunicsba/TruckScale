@@ -13,6 +13,8 @@ obj/
 *.db-wal
 TS.ini
 *.form
+# …except the sample layouts without personal data
+!forms/*.form
 
 # Local test builds
 publish/

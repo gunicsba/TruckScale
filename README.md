@@ -18,7 +18,7 @@ C# / .NET 10 · [Avalonia](https://avaloniaui.net/) UI · SQLite · Windows, Lin
   - **Használ** (stored tare) closes a ticket with a single weighing.
   - **Stornó** cancels an open weighing; it is kept, not deleted.
 - **Lists:** customers with address; plates and drivers are independent of the customer, since one truck hauls for many customers.
-- **Tickets:** printed from the old program's `.form` layouts (or a built-in A4 layout), with preview and zoom. Any past ticket can be reprinted.
+- **Tickets:** printed on A4 from the old program's `.form` layouts or the samples in [`forms/`](forms) (or a built-in layout), with preview and zoom. Any past ticket can be reprinted. Each weighing has its own note, editable at both weighings and printed on the ticket.
 - **Napló (history):** every weighing, with per-column filters and sortable columns.
 - **Áttekintés (summary):** totals for any period, per grain and per customer, printable over multiple pages.
 - **Scale:** serial indicator sending `ST,GL,   12340kg` lines (ST = stable); built-in simulator for testing without a scale.
