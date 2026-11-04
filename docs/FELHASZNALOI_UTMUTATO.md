@@ -27,6 +27,7 @@ A programot a `TruckScale.exe` indítja, telepíteni nem kell.
 - Az adatok egyetlen fájlban vannak: `truckscale.db`. Ha mást nem adunk meg, a program a felhasználó mappájában tárolja (`%APPDATA%\TruckScale\truckscale.db`). Első indításkor üresen hozza létre.
 - Másik adatfájlt így lehet megadni: `TruckScale.exe --db D:\Mérleg\truckscale.db`
 - Mérleg nélkül (próbához): `TruckScale.exe --sim`. Ilyenkor egy csúszkával lehet „súlyt tenni” a mérlegre.
+- **Nyelv:** a **Nyelv** menüben (vagy a Beállításban) magyar és angol közül lehet választani. A program felajánlja az újraindítást, utána minden felirat, a dátum- és a számformátum is az új nyelven jelenik meg.
 
 ## Főablak
 

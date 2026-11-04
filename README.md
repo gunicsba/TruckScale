@@ -22,6 +22,7 @@ C# / .NET 10 · [Avalonia](https://avaloniaui.net/) UI · SQLite · Windows, Lin
 - **Napló (history):** every weighing, with per-column filters and sortable columns.
 - **Áttekintés (summary):** totals for any period, per grain and per customer, printable over multiple pages.
 - **Scale:** serial indicator sending `ST,GL,   12340kg` lines (ST = stable); built-in simulator for testing without a scale.
+- **Languages:** Hungarian and English (menu *Nyelv / Language*); numbers and dates follow the language. Adding a language means adding one dictionary to `src/TruckScale.Core/Localization/Strings.cs`; a unit test checks that every key is translated.
 - **Migration:** imports the old `DATA.LIS` (Access/Jet) database. It merges duplicate plates, drivers and customers and checks the totals against the old data.
 
 | | |
@@ -47,7 +48,7 @@ Ticket printing currently works on Windows; the previews work everywhere.
 ## Running
 
 ```
-TruckScale.exe [--db path\to\truckscale.db] [--sim]
+TruckScale.exe [--db path\to\truckscale.db] [--sim] [--lang en]
 ```
 
 - Default database: `%APPDATA%\TruckScale\truckscale.db` (`~/.config/TruckScale/` on Linux). It is created empty if it does not exist.
