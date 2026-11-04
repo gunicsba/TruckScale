@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using System.Drawing.Printing;
 using System.Runtime.Versioning;
 using Avalonia;
@@ -20,7 +21,7 @@ public sealed class LogWindow : Window
 {
     private readonly AppState _state;
     private readonly FilterBar _filter = new(withTicketAndDate: true);
-    private readonly CheckBox _showVoid = new() { Content = "Stornók is", VerticalAlignment = VerticalAlignment.Center };
+    private readonly CheckBox _showVoid = new() { Content = L.T("log.showVoid"), VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _count = new() { Classes = { "hint" }, VerticalAlignment = VerticalAlignment.Center };
     private readonly DataGrid _grid = Grids.Weighings(withStatus: true);
     private List<Weighing> _all = [];
@@ -29,7 +30,7 @@ public sealed class LogWindow : Window
     {
         WindowFit.ClampToScreen(this);
         _state = state;
-        Title = "Napló – összes mérés";
+        Title = L.T("log.title");
         Width = 1500;
         Height = 760;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -40,9 +41,9 @@ public sealed class LogWindow : Window
         _grid.DoubleTapped += async (_, _) => await OpenTicket();
         _grid.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await OpenTicket(); } };
 
-        var ticket = new Button { Content = "Mérlegjegy (előnézet / nyomtatás)…" };
+        var ticket = new Button { Content = L.T("log.ticket") };
         ticket.Click += async (_, _) => await OpenTicket();
-        var close = new Button { Content = "Bezárás", IsCancel = true };
+        var close = new Button { Content = L.T("common.close"), IsCancel = true };
         close.Click += (_, _) => Close();
 
         var top = new StackPanel
@@ -53,7 +54,7 @@ public sealed class LogWindow : Window
         var bottom = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
         DockPanel.SetDock(close, Dock.Right);
         bottom.Children.Add(close);
-        bottom.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { ticket, new TextBlock { Text = "   Tipp: rendezés az oszlopfejlécre kattintva, dupla kattintás = mérlegjegy", Classes = { "hint" }, VerticalAlignment = VerticalAlignment.Center } } });
+        bottom.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { ticket, new TextBlock { Text = "   " + L.T("log.tip"), Classes = { "hint" }, VerticalAlignment = VerticalAlignment.Center } } });
         var root = new DockPanel { Margin = new Thickness(12) };
         DockPanel.SetDock(top, Dock.Top);
         DockPanel.SetDock(bottom, Dock.Bottom);
@@ -72,7 +73,7 @@ public sealed class LogWindow : Window
         var rows = _all.Where(w => (_showVoid.IsChecked == true || w.Status != WeighingStatus.Void) && f.Matches(w)).ToList();
         _grid.ItemsSource = rows;
         var t = Summary.Total(rows.Where(r => r.Status == WeighingStatus.Done));
-        _count.Text = $"{rows.Count} tétel    nettó összesen: {AppState.Kg((int)Math.Min(int.MaxValue, t.Net))}";
+        _count.Text = L.F("log.count", rows.Count, L.Kg(t.Net));
     }
 
     private async Task OpenTicket()
@@ -87,7 +88,7 @@ public sealed class FilterBar : WrapPanel
 {
     private readonly TextBox? _ticket, _date;
     private readonly TextBox _plate, _partner, _driver, _material, _marking;
-    private readonly ComboBox _dir = new() { ItemsSource = new[] { "Mind", "Beszállítás", "Kiszállítás" }, SelectedIndex = 0, Width = 130 };
+    private readonly ComboBox _dir = new() { ItemsSource = new[] { L.T("dir.all"), L.T("dir.in"), L.T("dir.out") }, SelectedIndex = 0, Width = 130 };
     private readonly List<(string Label, TextBox Box)> _boxes = [];
 
     public event Action? Changed;
@@ -104,17 +105,17 @@ public sealed class FilterBar : WrapPanel
         }
         if (withTicketAndDate)
         {
-            _ticket = Box("Jegy", 70);
-            _date = Box("Dátum", 110, "pl. 2023.07");
+            _ticket = Box(L.T("f.ticket"), 70);
+            _date = Box(L.T("f.date"), 110, L.T("filter.datePlaceholder"));
         }
-        Children.Add(Field("Irány", _dir));
+        Children.Add(Field(L.T("f.direction"), _dir));
         _dir.SelectionChanged += (_, _) => Changed?.Invoke();
-        _plate = Box("Rendszám", 130);
-        _partner = Box("Ügyfél", 190);
-        _driver = Box("Sofőr", 150);
-        _material = Box("Anyag", 150);
-        _marking = Box("Megjelölés", 140);
-        var clear = new Button { Content = "Szűrők törlése", VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(4, 0, 0, 0) };
+        _plate = Box(L.T("f.plate"), 130);
+        _partner = Box(L.T("f.customer"), 190);
+        _driver = Box(L.T("f.driver"), 150);
+        _material = Box(L.T("f.material"), 150);
+        _marking = Box(L.T("f.marking"), 140);
+        var clear = new Button { Content = L.T("filter.clear"), VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(4, 0, 0, 0) };
         clear.Click += (_, _) =>
         {
             foreach (var (_, b) in _boxes) b.Text = "";
@@ -139,9 +140,9 @@ public sealed class FilterBar : WrapPanel
     public string Describe()
     {
         var parts = new List<string>();
-        if (_dir.SelectedIndex > 0) parts.Add($"Irány: {_dir.SelectedItem}");
+        if (_dir.SelectedIndex > 0) parts.Add($"{L.T("f.direction")}: {_dir.SelectedItem}");
         parts.AddRange(_boxes.Where(x => !string.IsNullOrWhiteSpace(x.Box.Text)).Select(x => $"{x.Label}: „{x.Box.Text!.Trim()}”"));
-        return parts.Count == 0 ? "nincs (minden mérés)" : string.Join(", ", parts);
+        return parts.Count == 0 ? L.T("filter.none") : string.Join(", ", parts);
     }
 }
 
@@ -155,24 +156,24 @@ public static class Grids
             IsReadOnly = true, SelectionMode = DataGridSelectionMode.Single, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
             CanUserResizeColumns = true, CanUserSortColumns = true,
         };
-        void Col(string header, string path, string? format = null, bool star = false) =>
+        void Col(string header, string path, string? format = null, bool star = false, string? sortBy = null) =>
             g.Columns.Add(new DataGridTextColumn
             {
-                Header = header, Binding = new Binding(path) { StringFormat = format }, SortMemberPath = path,
+                Header = header, Binding = new Binding(path) { StringFormat = format }, SortMemberPath = sortBy ?? path,
                 Width = star ? new DataGridLength(220) : DataGridLength.Auto,
             });
-        Col("Jegy", "TicketNo");
-        Col("Lezárva", "ClosedAt", "{0:yyyy.MM.dd. HH:mm}");
-        if (withStatus) Col("Állapot", "StatusText");
-        Col("Irány", "DirectionText");
-        Col("Rendszám", "Plate");
-        Col("Ügyfél", "PartnerName", star: true);
-        Col("Sofőr", "DriverName");
-        Col("Anyag", "MaterialName");
-        Col("Megjelölés", "Marking");
-        Col("Bruttó", "Gross", "{0:N0}");
-        Col("Tára", "Tare", "{0:N0}");
-        Col("Nettó", "Net", "{0:N0}");
+        Col(L.T("f.ticket"), "TicketNo");
+        Col(L.T("f.closed"), "ClosedAtText", sortBy: "ClosedAt");
+        if (withStatus) Col(L.T("f.status"), "StatusText");
+        Col(L.T("f.direction"), "DirectionText");
+        Col(L.T("f.plate"), "Plate");
+        Col(L.T("f.customer"), "PartnerName", star: true);
+        Col(L.T("f.driver"), "DriverName");
+        Col(L.T("f.material"), "MaterialName");
+        Col(L.T("f.marking"), "Marking");
+        Col(L.T("f.gross"), "Gross", "{0:N0}");
+        Col(L.T("f.tare"), "Tare", "{0:N0}");
+        Col(L.T("f.net"), "Net", "{0:N0}");
         return g;
     }
 }
@@ -184,15 +185,15 @@ public sealed class SummaryWindow : Window
 {
     private readonly AppState _state;
     private readonly List<Weighing> _all;
-    private readonly CalendarDatePicker _from = new() { SelectedDateFormat = CalendarDatePickerFormat.Custom, CustomDateFormatString = "yyyy.MM.dd." };
-    private readonly CalendarDatePicker _to = new() { SelectedDateFormat = CalendarDatePickerFormat.Custom, CustomDateFormatString = "yyyy.MM.dd." };
+    private readonly CalendarDatePicker _from = new() { SelectedDateFormat = CalendarDatePickerFormat.Custom, CustomDateFormatString = L.T("fmt.date") };
+    private readonly CalendarDatePicker _to = new() { SelectedDateFormat = CalendarDatePickerFormat.Custom, CustomDateFormatString = L.T("fmt.date") };
     private readonly FilterBar _filter = new(withTicketAndDate: false);
     private readonly ComboBox _grouping = new()
     {
-        ItemsSource = new[] { "Anyagonként", "Anyagonként és ügyfelenként", "Ügyfelenként és anyagonként" }, SelectedIndex = 1, MinWidth = 240,
+        ItemsSource = new[] { L.T("sum.byMaterial"), L.T("sum.byMaterialCustomer"), L.T("sum.byCustomerMaterial") }, SelectedIndex = 1, MinWidth = 240,
     };
     private SummaryGrouping Grouping => (SummaryGrouping)Math.Max(0, _grouping.SelectedIndex);
-    private readonly CheckBox _itemized = new() { Content = "Tételes lista is (minden mérlegjegy)", IsChecked = true };
+    private readonly CheckBox _itemized = new() { Content = L.T("sum.itemized"), IsChecked = true };
     private readonly DataGrid _grid = new() { IsReadOnly = true, CanUserSortColumns = true, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal };
     private readonly TextBlock _total = new() { FontWeight = FontWeight.Bold, FontSize = 15 };
     private List<Weighing> _rows = [];
@@ -201,7 +202,7 @@ public sealed class SummaryWindow : Window
     {
         WindowFit.ClampToScreen(this);
         _state = state;
-        Title = "Áttekintés – összesítő";
+        Title = L.T("sum.title");
         Width = 1180;
         Height = 700;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -211,8 +212,8 @@ public sealed class SummaryWindow : Window
         _from.SelectedDate = new DateTime(today.Year, 1, 1);
         _to.SelectedDate = today;
 
-        foreach (var (h, p, f) in new[] { ("Irány", "DirectionText", null), ("Anyag", "Level1", null), ("Ügyfél", "Level2", null), ("Mérések", "Count", null),
-                     ("Bruttó (kg)", "Gross", "{0:N0}"), ("Tára (kg)", "Tare", "{0:N0}"), ("Nettó (kg)", "Net", "{0:N0}") })
+        foreach (var (h, p, f) in new[] { (L.T("f.direction"), "DirectionText", null), (L.T("f.material"), "Level1", null), (L.T("f.customer"), "Level2", null), (L.T("f.count"), "Count", null),
+                     (L.T("f.grossKg"), "Gross", "{0:N0}"), (L.T("f.tareKg"), "Tare", "{0:N0}"), (L.T("f.netKg"), "Net", "{0:N0}") })
             _grid.Columns.Add(new DataGridTextColumn { Header = h, Binding = new Binding(p) { StringFormat = f }, SortMemberPath = p,
                 Width = p is "Level1" or "Level2" ? new DataGridLength(1, DataGridLengthUnitType.Star) : DataGridLength.Auto });
         // Subtotal lines in bold.
@@ -234,12 +235,12 @@ public sealed class SummaryWindow : Window
             Orientation = Orientation.Horizontal, Spacing = 4,
             Children =
             {
-                Quick("Ma", () => (today, today)),
-                Quick("Ez a hónap", () => (new DateTime(today.Year, today.Month, 1), today)),
-                Quick("Előző hónap", () => { var f = new DateTime(today.Year, today.Month, 1).AddMonths(-1); return (f, f.AddMonths(1).AddDays(-1)); }),
-                Quick("Idén", () => (new DateTime(today.Year, 1, 1), today)),
-                Quick("Tavaly", () => (new DateTime(today.Year - 1, 1, 1), new DateTime(today.Year - 1, 12, 31))),
-                Quick("Összes", () => (_all.Count == 0 ? today : _all.Min(w => w.ClosedAt ?? today).Date, today)),
+                Quick(L.T("sum.today"), () => (today, today)),
+                Quick(L.T("sum.thisMonth"), () => (new DateTime(today.Year, today.Month, 1), today)),
+                Quick(L.T("sum.prevMonth"), () => { var f = new DateTime(today.Year, today.Month, 1).AddMonths(-1); return (f, f.AddMonths(1).AddDays(-1)); }),
+                Quick(L.T("sum.thisYear"), () => (new DateTime(today.Year, 1, 1), today)),
+                Quick(L.T("sum.lastYear"), () => (new DateTime(today.Year - 1, 1, 1), new DateTime(today.Year - 1, 12, 31))),
+                Quick(L.T("sum.all"), () => (_all.Count == 0 ? today : _all.Min(w => w.ClosedAt ?? today).Date, today)),
             },
         };
 
@@ -253,20 +254,20 @@ public sealed class SummaryWindow : Window
             Spacing = 8,
             Children =
             {
-                new WrapPanel { Children = { Labeled("Időszak", _from), new TextBlock { Text = " – ", VerticalAlignment = VerticalAlignment.Center }, _to, new Border { Width = 12 }, quick } },
+                new WrapPanel { Children = { Labeled(L.T("sum.period"), _from), new TextBlock { Text = " – ", VerticalAlignment = VerticalAlignment.Center }, _to, new Border { Width = 12 }, quick } },
                 _filter,
-                new WrapPanel { Children = { Labeled("Csoportosítás", _grouping) } },
+                new WrapPanel { Children = { Labeled(L.T("sum.grouping"), _grouping) } },
             },
         };
 
-        var print = new Button { Content = "Nyomtatás", MinWidth = 120, IsDefault = true };
-        var close = new Button { Content = "Bezárás", MinWidth = 100, IsCancel = true };
+        var print = new Button { Content = L.T("common.print"), MinWidth = 120, IsDefault = true };
+        var close = new Button { Content = L.T("common.close"), MinWidth = 100, IsCancel = true };
         print.Click += async (_, _) => await Print();
-        var preview = new Button { Content = "Előnézet", MinWidth = 100 };
+        var preview = new Button { Content = L.T("common.preview"), MinWidth = 100 };
         preview.Click += async (_, _) => await ShowPreview();
         close.Click += (_, _) => Close();
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right,
-            Children = { new TextBlock { Text = "Nyomtató:", VerticalAlignment = VerticalAlignment.Center }, Printers.Chooser(state), _itemized, close, preview, print } };
+            Children = { new TextBlock { Text = L.T("common.printer"), VerticalAlignment = VerticalAlignment.Center }, Printers.Chooser(state), _itemized, close, preview, print } };
         var bottom = new StackPanel { Spacing = 8, Margin = new Thickness(0, 8, 0, 0), Children = { _total, buttons } };
 
         var root = new DockPanel { Margin = new Thickness(12) };
@@ -293,26 +294,26 @@ public sealed class SummaryWindow : Window
         _grid.CanUserSortColumns = Grouping == SummaryGrouping.Material; // keep subtotals under their group
         _grid.ItemsSource = Summary.Build(_rows, Grouping);
         var t = Summary.Total(_rows);
-        _total.Text = $"Összesen: {t.Count} mérés    Bruttó {t.Gross:N0} kg    Tára {t.Tare:N0} kg    Nettó {t.Net:N0} kg";
+        _total.Text = L.F("sum.totalLine", t.Count, L.Number(t.Gross), L.Number(t.Tare), L.Number(t.Net));
     }
 
     private (string, string?) Headers() => Grouping switch
     {
-        SummaryGrouping.MaterialPartner => ("Anyag", "Ügyfél"),
-        SummaryGrouping.PartnerMaterial => ("Ügyfél", "Anyag"),
-        _ => ("Anyag", null),
+        SummaryGrouping.MaterialPartner => (L.T("f.material"), L.T("f.customer")),
+        SummaryGrouping.PartnerMaterial => (L.T("f.customer"), L.T("f.material")),
+        _ => (L.T("f.material"), null),
     };
 
     private async Task Print()
     {
-        if (_rows.Count == 0) { await Dialog.Info(this, "Nyomtatás", "Nincs a feltételeknek megfelelő mérés."); return; }
+        if (_rows.Count == 0) { await Dialog.Info(this, L.T("common.print"), L.T("sum.nothing")); return; }
         var err = ReportPrinter.Print(BuildDoc(), _state);
-        if (err is not null) await Dialog.Info(this, "Nyomtatás", err);
+        if (err is not null) await Dialog.Info(this, L.T("common.print"), err);
     }
 
     private async Task ShowPreview()
     {
-        if (_rows.Count == 0) { await Dialog.Info(this, "Előnézet", "Nincs a feltételeknek megfelelő mérés."); return; }
+        if (_rows.Count == 0) { await Dialog.Info(this, L.T("common.preview"), L.T("sum.nothing")); return; }
         var doc = BuildDoc();
         await new ReportPreviewWindow(_state, doc).ShowDialog(this);
     }
@@ -321,44 +322,44 @@ public sealed class SummaryWindow : Window
     {
         var f = CurrentFilter();
         var s = _state.Db.AllSettings();
-        string N(long v) => v.ToString("N0", AppState.Hu);
+        string N(long v) => L.Number(v);
         var header = new List<string>
         {
             string.Join(", ", new[] { s.GetValueOrDefault("company.name"), s.GetValueOrDefault("company.zip") + " " + s.GetValueOrDefault("company.town"), s.GetValueOrDefault("company.street") }
                 .Where(x => !string.IsNullOrWhiteSpace(x))),
-            $"Időszak: {f.From:yyyy.MM.dd.} – {f.To:yyyy.MM.dd.}",
-            $"Szűrés: {_filter.Describe()}",
+            L.F("sum.periodLine", L.Date(f.From), L.Date(f.To)),
+            L.F("sum.filterLine", _filter.Describe()),
         };
         var sections = new List<ReportSection>();
         var t = Summary.Total(_rows);
         var (h1, h2) = Headers();
         var summary = Summary.Build(_rows, Grouping);
         List<ReportColumn> cols = h2 is null
-            ? [new("Irány", 26, TextAlign.Left), new(h1, 64, TextAlign.Left), new("Mérés", 15, TextAlign.Right),
-               new("Bruttó (kg)", 25, TextAlign.Right), new("Tára (kg)", 25, TextAlign.Right), new("Nettó (kg)", 25, TextAlign.Right)]
-            : [new("Irány", 22, TextAlign.Left), new(h1, 38, TextAlign.Left), new(h2, 45, TextAlign.Left), new("Mérés", 12, TextAlign.Right),
-               new("Bruttó (kg)", 21, TextAlign.Right), new("Tára (kg)", 21, TextAlign.Right), new("Nettó (kg)", 21, TextAlign.Right)];
+            ? [new(L.T("f.direction"), 26, TextAlign.Left), new(h1, 64, TextAlign.Left), new(L.T("f.countShort"), 15, TextAlign.Right),
+               new(L.T("f.grossKg"), 25, TextAlign.Right), new(L.T("f.tareKg"), 25, TextAlign.Right), new(L.T("f.netKg"), 25, TextAlign.Right)]
+            : [new(L.T("f.direction"), 22, TextAlign.Left), new(h1, 38, TextAlign.Left), new(h2, 45, TextAlign.Left), new(L.T("f.countShort"), 12, TextAlign.Right),
+               new(L.T("f.grossKg"), 21, TextAlign.Right), new(L.T("f.tareKg"), 21, TextAlign.Right), new(L.T("f.netKg"), 21, TextAlign.Right)];
         string[] Cells(SummaryRow r) => h2 is null
             ? [r.DirectionText, r.Level1, r.Count.ToString(), N(r.Gross), N(r.Tare), N(r.Net)]
-            : [r.IsSubtotal ? "" : r.DirectionText, r.Level1, r.IsSubtotal ? "Összesen" : r.Level2 ?? "",
+            : [r.IsSubtotal ? "" : r.DirectionText, r.Level1, r.IsSubtotal ? L.T("common.total") : r.Level2 ?? "",
                r.Count.ToString(), N(r.Gross), N(r.Tare), N(r.Net)];
         string[] total = h2 is null
-            ? ["Összesen", "", t.Count.ToString(), N(t.Gross), N(t.Tare), N(t.Net)]
-            : ["Összesen", "", "", t.Count.ToString(), N(t.Gross), N(t.Tare), N(t.Net)];
-        sections.Add(new ReportSection($"Összesítés – {_grouping.SelectedItem}", cols, summary.Select(Cells).ToList(), total)
+            ? [L.T("common.total"), "", t.Count.ToString(), N(t.Gross), N(t.Tare), N(t.Net)]
+            : [L.T("common.total"), "", "", t.Count.ToString(), N(t.Gross), N(t.Tare), N(t.Net)];
+        sections.Add(new ReportSection(L.F("sum.section", _grouping.SelectedItem), cols, summary.Select(Cells).ToList(), total)
         {
             BoldRows = summary.Select((r, i) => (r, i)).Where(x => x.r.IsSubtotal).Select(x => x.i).ToHashSet(),
             SpaceAfterBold = true,
         });
         if (_itemized.IsChecked == true)
-            sections.Add(new ReportSection("Tételes lista",
-                [new("Jegy", 11, TextAlign.Left), new("Dátum", 25, TextAlign.Left), new("Irány", 8, TextAlign.Left), new("Rendszám", 26, TextAlign.Left),
-                 new("Ügyfél", 40, TextAlign.Left), new("Anyag", 24, TextAlign.Left), new("Bruttó", 15, TextAlign.Right), new("Tára", 15, TextAlign.Right), new("Nettó", 16, TextAlign.Right)],
-                _rows.Select(w => new[] { w.TicketNo?.ToString() ?? "", $"{w.ClosedAt:yyyy.MM.dd. HH:mm}", w.Direction == Direction.In ? "Be" : "Ki",
+            sections.Add(new ReportSection(L.T("sum.items"),
+                [new(L.T("f.ticket"), 11, TextAlign.Left), new(L.T("f.date"), 25, TextAlign.Left), new(L.T("f.direction"), 8, TextAlign.Left), new(L.T("f.plate"), 26, TextAlign.Left),
+                 new(L.T("f.customer"), 40, TextAlign.Left), new(L.T("f.material"), 24, TextAlign.Left), new(L.T("f.gross"), 15, TextAlign.Right), new(L.T("f.tare"), 15, TextAlign.Right), new(L.T("f.net"), 16, TextAlign.Right)],
+                _rows.Select(w => new[] { w.TicketNo?.ToString() ?? "", L.DateTime(w.ClosedAt), L.T(w.Direction == Direction.In ? "dir.inShort" : "dir.outShort"),
                     w.Plate ?? "", w.PartnerName ?? "", w.MaterialName ?? "", N(w.Gross ?? 0), N(w.Tare ?? 0), N(w.Net ?? 0) }).ToList(),
-                ["", "", "", "", "Összesen", "", N(t.Gross), N(t.Tare), N(t.Net)]));
+                ["", "", "", "", L.T("common.total"), "", N(t.Gross), N(t.Tare), N(t.Net)]));
 
-        return new ReportDoc("Összesítő – mérlegelések", header, sections);
+        return new ReportDoc(L.T("sum.reportTitle"), header, sections);
     }
 }
 
@@ -384,9 +385,9 @@ public static class ReportPrinter
 
     public static string? Print(ReportDoc doc, AppState state)
     {
-        if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return "A közvetlen nyomtatás egyelőre csak Windows alatt működik.";
+        if (!OperatingSystem.IsWindowsVersionAtLeast(6, 1)) return L.T("print.windowsOnly");
         try { PrintWindows(doc, state.Db.GetSetting("printer.name"), state.Db.GetSetting("printer.font_name") ?? "Arial"); return null; }
-        catch (Exception ex) { return "Nyomtatási hiba: " + ex.Message; }
+        catch (Exception ex) { return L.F("print.error", ex.Message); }
     }
 
     /// <summary>
@@ -441,7 +442,7 @@ public static class ReportPrinter
         {
             pd.PrinterSettings.PrinterName = printer;
             if (!pd.PrinterSettings.IsValid)
-                throw new InvalidOperationException($"A(z) „{printer}” nyomtató nem található.");
+                throw new InvalidOperationException(L.F("print.noPrinter", printer));
         }
         using var pager = new Pager(doc, fontName, total);
         pd.PrintPage += (_, e) =>
@@ -545,8 +546,8 @@ public static class ReportPrinter
 
             using var foot = new System.Drawing.StringFormat { Alignment = System.Drawing.StringAlignment.Far };
             g.DrawLine(_pen, Left, Bottom + 2.5f, Left + 180, Bottom + 2.5f);
-            g.DrawString($"Nyomtatva: {_printed:yyyy.MM.dd. HH:mm}", _normal, System.Drawing.Brushes.Black, Left, Bottom + 3.5f);
-            g.DrawString(_total > 0 ? $"{_page} / {_total}. oldal" : $"{_page}. oldal", _normal, System.Drawing.Brushes.Black,
+            g.DrawString(L.F("print.printedAt", L.DateTime(_printed)), _normal, System.Drawing.Brushes.Black, Left, Bottom + 3.5f);
+            g.DrawString(_total > 0 ? L.F("print.pageOf", _page, _total) : L.F("print.page", _page), _normal, System.Drawing.Brushes.Black,
                 new System.Drawing.RectangleF(Left, Bottom + 3.5f, 180, LineH), foot);
             return _next < _lines.Count;
         }
@@ -564,7 +565,7 @@ public sealed class ReportPreviewWindow : Window
     public ReportPreviewWindow(AppState state, ReportDoc doc)
     {
         WindowFit.ClampToScreen(this);
-        Title = $"{doc.Title} – előnézet";
+        Title = L.F("print.previewTitle", doc.Title);
         Width = 980;
         Height = 860;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -581,13 +582,13 @@ public sealed class ReportPreviewWindow : Window
                 Child = imgs.AddAndReturn(new Image { Source = new Avalonia.Media.Imaging.Bitmap(ms), Width = pageWidth }),
             });
         }
-        if (images.Count == 0) pages.Children.Add(new TextBlock { Text = "Előnézet egyelőre csak Windows alatt.", Foreground = Brushes.White });
+        if (images.Count == 0) pages.Children.Add(new TextBlock { Text = L.T("print.previewWindowsOnly"), Foreground = Brushes.White });
 
-        var print = new Button { Content = "Nyomtatás", MinWidth = 120, IsDefault = true };
-        var close = new Button { Content = "Bezárás", MinWidth = 100, IsCancel = true };
+        var print = new Button { Content = L.T("common.print"), MinWidth = 120, IsDefault = true };
+        var close = new Button { Content = L.T("common.close"), MinWidth = 100, IsCancel = true };
         print.Click += async (_, _) =>
         {
-            if (ReportPrinter.Print(doc, state) is { } err) await Dialog.Info(this, "Nyomtatás", err);
+            if (ReportPrinter.Print(doc, state) is { } err) await Dialog.Info(this, L.T("common.print"), err);
             else Close();
         };
         close.Click += (_, _) => Close();
@@ -608,7 +609,7 @@ public sealed class ReportPreviewWindow : Window
         }
         var zoomOut = new Button { Content = "−", MinWidth = 36 };
         var zoomIn = new Button { Content = "+", MinWidth = 36 };
-        var fit = new Button { Content = "Egész oldal" };
+        var fit = new Button { Content = L.T("common.fitPage") };
         zoomOut.Click += (_, _) => SetWidth(pageWidth / 1.25);
         zoomIn.Click += (_, _) => SetWidth(pageWidth * 1.25);
         fit.Click += (_, _) => Fit();
@@ -626,7 +627,7 @@ public sealed class ReportPreviewWindow : Window
             Children =
             {
                 zoomOut, zoomText, zoomIn, fit,
-                new TextBlock { Text = $"   {images.Count} oldal    Nyomtató:", VerticalAlignment = VerticalAlignment.Center },
+                new TextBlock { Text = $"   {L.F("common.pages", images.Count)}    {L.T("common.printer")}", VerticalAlignment = VerticalAlignment.Center },
                 Printers.Chooser(state), close, print,
             },
         };

@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 namespace TruckScale.Core.Data;
 
 public enum Direction { In, Out }
@@ -68,6 +69,9 @@ public sealed record Weighing
     public int? Net { get; init; }
     public bool StoredTare { get; init; }
 
-    public string DirectionText => Direction == Direction.In ? "Beszállítás" : "Kiszállítás";
-    public string StatusText => Status switch { WeighingStatus.Open => "Udvaron", WeighingStatus.Void => "Stornó", _ => "Lezárt" };
+    public string DirectionText => L.T(Direction == Direction.In ? "dir.in" : "dir.out");
+    public string StatusText => L.T(Status switch { WeighingStatus.Open => "status.open", WeighingStatus.Void => "status.void", _ => "status.done" });
+    public string FirstAtText => L.DateTime(FirstAt);
+    public string ClosedAtText => L.DateTime(ClosedAt);
+    public string ClosedTimeText => L.Time(ClosedAt);
 }

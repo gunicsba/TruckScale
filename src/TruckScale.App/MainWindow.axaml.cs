@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -36,7 +37,8 @@ public partial class MainWindow : Window
             }
         }
 
-        StatusText.Text = $"Adatbázis: {state.Db.Path}    Mérleg: {state.Scale.Description}" +
+        BuildLanguageMenu();
+        StatusText.Text = L.F("main.status", state.Db.Path, state.Scale.Description) +
                           (state.ScaleNote is null ? "" : $"  ({state.ScaleNote})");
         Refresh();
     }
@@ -45,11 +47,11 @@ public partial class MainWindow : Window
     {
         var open = _state.Db.OpenWeighings();
         YardGrid.ItemsSource = open;
-        YardTab.Header = $"Udvaron ({open.Count})";
+        YardTab.Header = L.F("main.yard", open.Count);
         var today = DateTime.Today;
         var done = _state.Db.ClosedWeighings(today, today.AddDays(1));
         TodayGrid.ItemsSource = done;
-        TodayTab.Header = $"Mai mérések ({done.Count(w => w.Status == WeighingStatus.Done)})";
+        TodayTab.Header = L.F("main.today", done.Count(w => w.Status == WeighingStatus.Done));
     }
 
     private async Task OpenWeighing(WeighingWindow win)
@@ -66,7 +68,7 @@ public partial class MainWindow : Window
         if (YardGrid.SelectedItem is not Weighing w)
         {
             if (YardGrid.ItemsSource is List<Weighing> { Count: 1 } only) w = only[0];
-            else { await Dialog.Info(this, "Távozás", "Válassza ki a távozó járművet a listában."); return; }
+            else { await Dialog.Info(this, L.T("main.leave.title"), L.T("main.leave.select")); return; }
         }
         await OpenWeighing(new WeighingWindow(_state, w));
     }
@@ -98,5 +100,26 @@ public partial class MainWindow : Window
     private void OnExit(object? sender, RoutedEventArgs e) => Close();
 
     private async void OnAbout(object? sender, RoutedEventArgs e) =>
-        await Dialog.Info(this, "Névjegy", "Truck Scale – hídmérleg program\nhttps://github.com/gunicsba/TruckScale");
+        await Dialog.Info(this, L.T("main.menu.about").Replace("_", ""), L.T("main.about") + "\nhttps://github.com/gunicsba/TruckScale");
+
+    /// <summary>Nyelv / Language menu: one item per language; choosing one saves it and offers a restart.</summary>
+    private void BuildLanguageMenu()
+    {
+        foreach (var lang in L.Languages)
+        {
+            var item = new MenuItem
+            {
+                Header = lang.Name,
+                Icon = lang.Code == L.Current.Code ? new TextBlock { Text = "✓" } : null,
+            };
+            item.Click += async (_, _) =>
+            {
+                if (lang.Code == L.Current.Code) return;
+                _state.Db.SetSetting("ui.language", lang.Code);
+                L.Set(lang.Code);   // the question below already in the new language
+                if (await Dialog.Confirm(this, L.T("common.restartTitle"), L.T("common.restartNow"))) _state.Restart();
+            };
+            LanguageMenu.Items.Add(item);
+        }
+    }
 }

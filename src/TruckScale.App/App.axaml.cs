@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using System.Globalization;
 using System.IO.Ports;
 using Avalonia;
@@ -28,7 +29,11 @@ public partial class App : Application
 /// <summary>Everything the windows share: the database, the scale and the latest reading.</summary>
 public sealed class AppState : IDisposable
 {
-    public static readonly CultureInfo Hu = CultureInfo.GetCultureInfo("hu-HU");
+    /// <summary>Culture of the current language (numbers, dates, sorting).</summary>
+    public static CultureInfo Hu => L.Culture;
+
+    /// <summary>Command-line arguments (to restart the program with the same arguments).</summary>
+    public string[] Args { get; init; } = [];
 
     public required TruckScaleDb Db { get; init; }
     public required IScale Scale { get; init; }
@@ -43,13 +48,15 @@ public sealed class AppState : IDisposable
 
     public static AppState Create(string[] args)
     {
-        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = Hu;
-        CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = Hu;
-
         string? Arg(string name) { var i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
         var dbPath = Arg("--db") ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TruckScale", "truckscale.db");
         var db = TruckScaleDb.OpenOrCreate(dbPath);
+
+        // Language (setting "ui.language", or --lang en); numbers and dates follow it.
+        L.Set(Arg("--lang") ?? db.GetSetting("ui.language"));
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = L.Culture;
+        CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = L.Culture;
 
         var settings = db.AllSettings();
         var serial = SerialSettings.From(settings);
@@ -66,10 +73,10 @@ public sealed class AppState : IDisposable
         else
         {
             scale = new SimulatedScale();
-            note = serial.Port.Length > 0 ? $"{serial.Port} nem elérhető – szimulátor" : "Nincs soros port beállítva – szimulátor";
+            note = serial.Port.Length > 0 ? L.F("scale.portMissing", serial.Port) : L.T("scale.noPort");
         }
 
-        var state = new AppState { Db = db, Scale = scale, ScaleNote = note };
+        var state = new AppState { Db = db, Scale = scale, ScaleNote = note, Args = args };
         scale.ReadingChanged += r => Dispatcher.UIThread.Post(() =>
         {
             state.Reading = r;
@@ -86,6 +93,31 @@ public sealed class AppState : IDisposable
         Db.Dispose();
     }
 
-    public static string Kg(int? w) => w is int v ? v.ToString("N0", Hu) + " kg" : "";
-    public static string When(DateTime? t) => t?.ToString("yyyy.MM.dd. HH:mm", Hu) ?? "";
+    public static string Kg(int? w) => L.Kg(w);
+    public static string When(DateTime? t) => L.DateTime(t);
+
+    /// <summary>Starts the program again with the same arguments and closes this instance.</summary>
+    public void Restart()
+    {
+        if (Environment.ProcessPath is { } exe)
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = false, ArgumentList = { } }
+                .WithArgs(Args));
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.Shutdown();
+    }
+}
+
+internal static class ProcessStartInfoExtensions
+{
+    public static System.Diagnostics.ProcessStartInfo WithArgs(this System.Diagnostics.ProcessStartInfo psi, IEnumerable<string> args)
+    {
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        return psi;
+    }
+}
+
+/// <summary>XAML: Text="{l:T main.in}" – a UI text in the current language.</summary>
+public sealed class TExtension(string key) : Avalonia.Markup.Xaml.MarkupExtension
+{
+    public string Key { get; set; } = key;
+    public override object ProvideValue(IServiceProvider serviceProvider) => L.T(Key);
 }

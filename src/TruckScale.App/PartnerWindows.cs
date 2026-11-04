@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -13,15 +14,15 @@ public sealed class PartnerEditWindow : Window
 {
     private readonly AppState _state;
     private readonly Partner _original;
-    private readonly TextBox _name = new(), _street = new() { PlaceholderText = "utca, házszám" }, _town = new(),
-        _zip = new() { Width = 90 }, _note = new() { PlaceholderText = "nem kötelező" };
+    private readonly TextBox _name = new(), _street = new() { PlaceholderText = L.T("p.streetPlaceholder") }, _town = new(),
+        _zip = new() { Width = 90 }, _note = new() { PlaceholderText = L.T("common.optional") };
     private readonly TextBlock _error = new() { Foreground = Brushes.Firebrick, TextWrapping = TextWrapping.Wrap };
 
     public PartnerEditWindow(AppState state, Partner? partner, string? newName = null)
     {
         _state = state;
         _original = partner ?? new Partner(0, newName ?? "", null, null, null);
-        Title = partner is null ? "Új ügyfél" : "Ügyfél szerkesztése";
+        Title = L.T(partner is null ? "p.newTitle" : "p.editTitle");
         Width = 520;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -43,17 +44,17 @@ public sealed class PartnerEditWindow : Window
             Grid.SetRow(l, r); Grid.SetRow(c, r); Grid.SetColumn(c, 1);
             grid.Children.Add(l); grid.Children.Add(c);
         }
-        Row("Név", _name);
-        Row("Utca", _street);
+        Row(L.T("f.name"), _name);
+        Row(L.T("f.street"), _street);
         var townRow = new Grid { ColumnDefinitions = new("*,Auto,Auto") };
-        var zipLabel = new TextBlock { Text = "Ir.szám", Classes = { "label" }, Margin = new Thickness(12, 0, 8, 0) };
+        var zipLabel = new TextBlock { Text = L.T("f.zip"), Classes = { "label" }, Margin = new Thickness(12, 0, 8, 0) };
         Grid.SetColumn(zipLabel, 1); Grid.SetColumn(_zip, 2);
         townRow.Children.Add(_town); townRow.Children.Add(zipLabel); townRow.Children.Add(_zip);
-        Row("Település", townRow);
-        Row("Megjegyzés", _note);
+        Row(L.T("f.town"), townRow);
+        Row(L.T("f.note"), _note);
 
-        var save = new Button { Content = "Mentés", MinWidth = 100, IsDefault = true };
-        var cancel = new Button { Content = "Mégse", MinWidth = 100, IsCancel = true };
+        var save = new Button { Content = L.T("common.save"), MinWidth = 100, IsDefault = true };
+        var cancel = new Button { Content = L.T("common.cancel"), MinWidth = 100, IsCancel = true };
         save.Click += (_, _) => Save();
         cancel.Click += (_, _) => Close(null);
 
@@ -91,7 +92,7 @@ public sealed class PartnerEditWindow : Window
 public sealed class PartnersWindow : Window
 {
     private readonly AppState _state;
-    private readonly TextBox _search = new() { PlaceholderText = "Keresés (név, település, utca)…" };
+    private readonly TextBox _search = new() { PlaceholderText = L.T("p.search") };
     private readonly DataGrid _grid = new()
     {
         IsReadOnly = true, SelectionMode = DataGridSelectionMode.Single, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
@@ -113,22 +114,22 @@ public sealed class PartnersWindow : Window
     public PartnersWindow(AppState state)
     {
         _state = state;
-        Title = "Adatállomány – Ügyfelek";
+        Title = L.T("p.listTitle");
         Width = 1000;
         Height = 640;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         foreach (var (h, b, w) in new[]
                  {
-                     ("Név", "Name", "2*"), ("Ir.szám", "Zip", "Auto"), ("Település", "Town", "*"), ("Utca", "Street", "*"),
-                     ("Megjegyzés", "Note", "*"), ("Mérések", "Count", "Auto"), ("Utolsó mérés", "LastText", "Auto"),
+                     (L.T("f.name"), "Name", "2*"), (L.T("f.zip"), "Zip", "Auto"), (L.T("f.town"), "Town", "*"), (L.T("f.street"), "Street", "*"),
+                     (L.T("f.note"), "Note", "*"), (L.T("f.count"), "Count", "Auto"), (L.T("f.lastWeighing"), "LastText", "Auto"),
                  })
             _grid.Columns.Add(new DataGridTextColumn { Header = h, Binding = new Avalonia.Data.Binding(b), Width = w == "Auto" ? DataGridLength.Auto : new DataGridLength(double.Parse(w.TrimEnd('*') is { Length: > 0 } n ? n : "1"), DataGridLengthUnitType.Star) });
 
-        var add = new Button { Content = "Új ügyfél…" };
-        var edit = new Button { Content = "Szerkesztés…" };
-        var delete = new Button { Content = "Törlés", Foreground = Brushes.DarkRed };
-        var close = new Button { Content = "Bezárás", IsCancel = true };
+        var add = new Button { Content = L.T("p.new") };
+        var edit = new Button { Content = L.T("common.edit") };
+        var delete = new Button { Content = L.T("common.delete"), Foreground = Brushes.DarkRed };
+        var close = new Button { Content = L.T("common.close"), IsCancel = true };
         add.Click += async (_, _) => { if (await new PartnerEditWindow(_state, null).ShowDialog<Partner?>(this) is { } p) Reload(p.Id); };
         edit.Click += async (_, _) => await Edit();
         delete.Click += async (_, _) => await Delete();
@@ -173,7 +174,7 @@ public sealed class PartnersWindow : Window
         var rows = _all.Where(r => key.Length == 0 ||
             Normalize.NameKey($"{r.Name} {r.Town} {r.Street} {r.Zip} {r.Note}").Contains(key)).ToList();
         _grid.ItemsSource = rows;
-        _count.Text = $"{rows.Count} / {_all.Count} ügyfél";
+        _count.Text = L.F("p.count", rows.Count, _all.Count);
         if (select is long id && rows.FirstOrDefault(r => r.Partner.Id == id) is { } row)
         {
             _grid.SelectedItem = row;
@@ -190,9 +191,8 @@ public sealed class PartnersWindow : Window
     private async Task Delete()
     {
         if (_grid.SelectedItem is not Row r) return;
-        var msg = $"Törli a(z) „{r.Name}” ügyfelet a listából?" +
-                  (r.Count > 0 ? $"\nA {r.Count} korábbi mérése és mérlegjegye megmarad." : "");
-        if (!await Dialog.Confirm(this, "Törlés", msg, "Törlés", "Mégse")) return;
+        var msg = L.F("p.deleteConfirm", r.Name) + (r.Count > 0 ? L.F("p.deleteKeeps", r.Count) : "");
+        if (!await Dialog.Confirm(this, L.T("common.delete"), msg, L.T("common.delete"), L.T("common.cancel"))) return;
         try
         {
             _state.Db.DeletePartner(r.Partner.Id);
@@ -200,7 +200,7 @@ public sealed class PartnersWindow : Window
         }
         catch (InvalidOperationException ex)
         {
-            await Dialog.Info(this, "Törlés", ex.Message);
+            await Dialog.Info(this, L.T("common.delete"), ex.Message);
         }
     }
 }

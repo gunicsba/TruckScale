@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using System.IO.Ports;
 
 namespace TruckScale.Core.Scale;
@@ -82,7 +83,7 @@ public sealed class SimulatedScale : IScale
     public SimulatedScale() => _timer = new Timer(_ => Tick());
 
     public event Action<ScaleReading?>? ReadingChanged;
-    public string Description => "Szimulátor";
+    public string Description => L.T("scale.simulator");
 
     public int Target
     {

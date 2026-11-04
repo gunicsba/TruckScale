@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -30,7 +31,7 @@ public partial class WeighingWindow : Window
     /// <summary>New weighing.</summary>
     public WeighingWindow(AppState state, Direction direction) : this(state, null, true)
     {
-        Title = direction == Direction.In ? "Jármű érkezése – Beszállítás" : "Jármű érkezése – Kiszállítás";
+        Title = L.T(direction == Direction.In ? "w.titleIn" : "w.titleOut");
         (direction == Direction.In ? DirIn : DirOut).IsChecked = true;
 
         // Pre-fill with the previous weighing; every field can be changed.
@@ -47,7 +48,7 @@ public partial class WeighingWindow : Window
     /// <summary>2nd weighing / Stornó of a truck in the yard.</summary>
     public WeighingWindow(AppState state, Weighing open) : this(state, open, true)
     {
-        Title = $"Jármű távozása – {open.DirectionText}";
+        Title = L.F("w.titleLeave", open.DirectionText);
         (open.Direction == Direction.In ? DirIn : DirOut).IsChecked = true;
         PartnerBox.Text = open.PartnerName;
         PlateBox.Text = open.Plate;
@@ -63,9 +64,9 @@ public partial class WeighingWindow : Window
         UseStoredTare.IsVisible = false;
         FirstPanel.IsVisible = true;
         FirstInfo.Text = $"{AppState.Kg(open.FirstWeight)}   {AppState.When(open.FirstAt)}";
-        WeightTitle.Text = "2. mérés";
+        WeightTitle.Text = L.T("w.second");
         VoidButton.IsVisible = true;
-        CancelButton.Content = "Bezárás";
+        CancelButton.Content = L.T("common.close");
         UpdateInfo();
     }
 
@@ -214,25 +215,25 @@ public partial class WeighingWindow : Window
         if (p is not null && p.Id != _detailsFor) FillDetails(p);
         else if (p is null && _detailsFor is not null) { FillDetails(null); }
         PartnerInfo.Text = p is null && !string.IsNullOrWhiteSpace(PartnerBox.Text)
-            ? "Nincs ilyen ügyfél – válasszon a listából, vagy hozza létre: Új…"
+            ? L.T("w.unknownPartnerInfo")
             : "";
         PartnerEdit.IsEnabled = p is not null;
 
         var v = CurrentVehicle;
         if (v?.LastTare is int tare)
         {
-            TareInfo.Text = $"Tárolt tára: {AppState.Kg(tare)}" + (v.LastTareAt is { } at ? $" ({at:yyyy.MM.dd.})" : "");
+            TareInfo.Text = L.F("w.storedTare", AppState.Kg(tare)) + (v.LastTareAt is { } at ? $" ({L.Date(at)})" : "");
             UseStoredTare.IsEnabled = true;
         }
         else
         {
-            TareInfo.Text = v is null && !string.IsNullOrWhiteSpace(PlateBox.Text) ? "Új rendszám – nincs tárolt tára." : "Nincs tárolt tára.";
+            TareInfo.Text = L.T(v is null && !string.IsNullOrWhiteSpace(PlateBox.Text) ? "w.newPlate" : "w.noTare");
             UseStoredTare.IsChecked = false;
             UseStoredTare.IsEnabled = false;
         }
 
         var m = _materials.FirstOrDefault(x => Normalize.NameKey(x.Display) == Normalize.NameKey(MaterialBox.Text));
-        MaterialInfo.Text = m?.Comment is { } c ? $"Megjegyzés: {c}" : "";
+        MaterialInfo.Text = m?.Comment is { } c ? L.F("w.materialComment", c) : "";
         UpdateHint();
     }
 
@@ -249,16 +250,16 @@ public partial class WeighingWindow : Window
         if (_done is not null)
         {
             WeighButton.IsEnabled = false;
-            PrintButton.Content = "Nyomtatás";
+            PrintButton.Content = L.T("common.print");
             PrintButton.IsEnabled = !_busy;
             return;
         }
         HintText.Text = problem ?? (_open is null && UseStoredTare.IsChecked == true
-            ? $"Egy mérés: nettó = mért súly − {AppState.Kg(CurrentVehicle?.LastTare)}"
+            ? L.F("w.oneWeighing", AppState.Kg(CurrentVehicle?.LastTare))
             : "");
         WeighButton.IsEnabled = problem is null && !_busy;
         // When the ticket gets closed, "Mérés + nyomtatás" does everything in one go (and is the Enter key).
-        PrintButton.Content = "Mérés + nyomtatás";
+        PrintButton.Content = L.T("w.weighPrint");
         PrintButton.IsEnabled = WeighButton.IsEnabled && ClosesTicket;
         PrintButton.IsDefault = ClosesTicket;
         WeighButton.IsDefault = !ClosesTicket;
@@ -268,16 +269,16 @@ public partial class WeighingWindow : Window
     {
         if (_done is not null) return "";
         var r = _state.Reading;
-        if (r is null) return "Nincs kapcsolat a mérleggel.";
-        if (r.Status == ScaleStatus.Overload) return "Túlterhelés.";
-        if (!r.IsStable) return "A mérleg nem stabil – várjon.";
-        if (r.Weight <= 0) return "A mérleg üres.";
+        if (r is null) return L.T("w.p.noConnection");
+        if (r.Status == ScaleStatus.Overload) return L.T("w.p.overload");
+        if (!r.IsStable) return L.T("w.p.unstable");
+        if (r.Weight <= 0) return L.T("w.p.empty");
         if (_open is not null) return null;
-        if (string.IsNullOrWhiteSpace(PartnerBox.Text)) return "Válassza ki az ügyfelet.";
-        if (CurrentPartner is null) return "Ismeretlen ügyfél – válasszon a listából, vagy hozza létre (Új…).";
-        if (Normalize.PlateKey(PlateBox.Text).Length == 0) return "Adja meg a rendszámot.";
+        if (string.IsNullOrWhiteSpace(PartnerBox.Text)) return L.T("w.p.choosePartner");
+        if (CurrentPartner is null) return L.T("w.p.unknownPartner");
+        if (Normalize.PlateKey(PlateBox.Text).Length == 0) return L.T("w.p.plate");
         if (UseStoredTare.IsChecked == true && CurrentVehicle?.LastTare is int t && r.Weight <= t)
-            return $"A mért súly nem több, mint a tárolt tára ({AppState.Kg(t)}).";
+            return L.F("w.p.belowTare", AppState.Kg(t));
         return null;
     }
 
@@ -302,7 +303,7 @@ public partial class WeighingWindow : Window
             if (_open is not null)
             {
                 if (Math.Abs(weight - (_open.FirstWeight ?? 0)) < 200 &&
-                    !await Dialog.Confirm(this, "Mérés", $"A két mérés szinte azonos ({AppState.Kg(_open.FirstWeight)} / {AppState.Kg(weight)}).\nBiztosan lezárja?"))
+                    !await Dialog.Confirm(this, L.T("w.weigh"), L.F("w.similar", AppState.Kg(_open.FirstWeight), AppState.Kg(weight))))
                     return null;
                 return _state.Db.CloseWeighing(_open.Id, weight, now);
             }
@@ -315,13 +316,13 @@ public partial class WeighingWindow : Window
                 return _state.Db.SingleWeighing(draft, weight, now);
 
             var w = _state.Db.StartWeighing(draft, weight, now);
-            await Dialog.Info(this, "1. mérés", $"{w.Plate}: {AppState.Kg(weight)} rögzítve.\nA jármű az udvaron van, távozáskor válassza ki a listából.");
+            await Dialog.Info(this, L.T("w.first"), L.F("w.firstRecorded", w.Plate, AppState.Kg(weight)));
             Close();
             return null;
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
-            await Dialog.Info(this, "Mérés", ex.Message);
+            await Dialog.Info(this, L.T("w.weigh"), ex.Message);
             return null;
         }
         finally
@@ -339,12 +340,10 @@ public partial class WeighingWindow : Window
                      DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox })
             c.IsEnabled = false;
         VoidButton.IsVisible = false;
-        CancelButton.Content = "Bezárás";
-        Title = $"Mérlegjegy {w.TicketNo} – {w.DirectionText}";
-        ResultText.Text = $"Mérlegjegy: {w.TicketNo}\n" +
-                          $"Bruttó: {AppState.Kg(w.Gross),12}\n" +
-                          $"Tára:   {AppState.Kg(w.Tare),12}{(w.StoredTare ? " (tárolt)" : "")}\n" +
-                          $"Nettó:  {AppState.Kg(w.Net),12}";
+        CancelButton.Content = L.T("common.close");
+        Title = L.F("w.titleTicket", w.TicketNo, w.DirectionText);
+        ResultText.Text = L.F("w.result", w.TicketNo, AppState.Kg(w.Gross), AppState.Kg(w.Tare),
+            w.StoredTare ? L.T("w.resultStored") : "", AppState.Kg(w.Net));
         ResultPanel.IsVisible = true;
         PrintButton.IsEnabled = true;
         PrintButton.IsDefault = true;
@@ -364,14 +363,14 @@ public partial class WeighingWindow : Window
         _busy = true;
         UpdateHint();
         HintText.Foreground = Avalonia.Media.Brushes.DarkGreen;
-        HintText.Text = $"Mérlegjegy {done.TicketNo} nyomtatása folyamatban…";
+        HintText.Text = L.F("w.printing", done.TicketNo);
         var err = await TicketService.PrintAsync(_state, done);
         _busy = false;
         if (err is not null)
         {
             HintText.Text = "";
             UpdateHint();
-            await Dialog.Info(this, "Nyomtatás", err + "\n\nA mérés le van zárva; a jegy újranyomtatható (Nyomtatás gomb vagy Napló).");
+            await Dialog.Info(this, L.T("common.print"), L.F("w.printFailed", err));
             return;
         }
         Close();
@@ -383,9 +382,8 @@ public partial class WeighingWindow : Window
     private async void OnVoid(object? sender, RoutedEventArgs e)
     {
         if (_open is null) return;
-        if (!await Dialog.Confirm(this, "Stornó",
-                $"Stornózza a(z) {_open.Plate} mérését?\nA rekord megmarad „Stornó” állapotban, mérlegjegy nem készül.",
-                "Stornó", "Mégse"))
+        if (!await Dialog.Confirm(this, L.T("status.void"), L.F("w.voidConfirm", _open.Plate),
+                L.T("status.void"), L.T("common.cancel")))
             return;
         _state.Db.VoidWeighing(_open.Id, DateTime.Now);
         Close();

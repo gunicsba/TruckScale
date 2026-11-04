@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using System.IO.Ports;
 using Avalonia;
 using Avalonia.Controls;
@@ -23,7 +24,7 @@ public static class Printers
         var list = Installed();
         var current = state.Db.GetSetting("printer.name");
         if (!string.IsNullOrWhiteSpace(current) && !list.Contains(current)) list.Insert(0, current); // keep it visible even if missing
-        var combo = new ComboBox { ItemsSource = list, SelectedItem = current, MinWidth = 320, PlaceholderText = "alapértelmezett nyomtató" };
+        var combo = new ComboBox { ItemsSource = list, SelectedItem = current, MinWidth = 320, PlaceholderText = L.T("common.defaultPrinter") };
         combo.SelectionChanged += (_, _) =>
         {
             if (combo.SelectedItem is not string s || s == state.Db.GetSetting("printer.name")) return;
@@ -41,13 +42,15 @@ public sealed class SettingsWindow : Window
     private readonly Dictionary<string, TextBox> _fields = new();
     private readonly ComboBox _port = new() { MinWidth = 140 };
     private readonly ComboBox _baud = new() { ItemsSource = new[] { "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200" }, MinWidth = 140 };
-    private readonly CheckBox _sim = new() { Content = "Szimulátor használata (mérleg nélkül, teszteléshez)" };
+    private readonly CheckBox _sim = new() { Content = L.T("set.sim") };
+    private readonly ComboBox _language = new() { MinWidth = 140, ItemsSource = L.Languages.Select(l => l.Name).ToList() };
     private readonly ComboBox _printer;
 
     public SettingsWindow(AppState state)
     {
         _state = state;
-        Title = "Beállítás";
+        Title = L.T("set.title");
+        _language.SelectedIndex = L.Languages.ToList().FindIndex(l => l.Code == L.Current.Code);
         Width = 680;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -65,38 +68,39 @@ public sealed class SettingsWindow : Window
         _sim.IsChecked = s.GetValueOrDefault("scale.simulator") == "1";
 
         var formBox = Field("ticket.form", s);
-        var browse = new Button { Content = "Tallózás…" };
+        var browse = new Button { Content = L.T("set.browse") };
         browse.Click += async (_, _) =>
         {
             var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Mérlegjegy forma kiválasztása",
-                FileTypeFilter = [new FilePickerFileType("Forma (*.form)") { Patterns = ["*.form", "*.txt"] }],
+                Title = L.T("set.formPick"),
+                FileTypeFilter = [new FilePickerFileType(L.T("set.formType")) { Patterns = ["*.form", "*.txt"] }],
             });
             if (files.FirstOrDefault()?.TryGetLocalPath() is { } path) formBox.Text = path;
         };
 
         var form = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
-        form.Children.Add(Section("Nyomtatás",
-            Row("Nyomtató", _printer),
-            Row("Forma fájl", WithButton(formBox, browse)),
-            Hint("Üresen hagyva a beépített mintát használja. Relatív név esetén az adatbázis mellett keresi.")));
-        form.Children.Add(Section("Cég (a mérlegjegyen)",
-            Row("Név", Field("company.name", s)),
-            Row("Utca", Field("company.street", s)),
-            Row("Település", TownZip(Field("company.town", s), Field("company.zip", s))),
-            Row("Megjegyzés", Field("company.note", s)),
-            Hint("A megjegyzés (pl. „… 0123/4 Hrsz”) az Átadó és Átvevő között jelenik meg."),
-            Row("Adószám", Field("company.tax_no", s)),
-            Row("Kezelő neve", Field("operator.name", s))));
-        form.Children.Add(Section("Mérleg",
-            Row("Soros port", _port),
-            Row("Sebesség", _baud),
+        form.Children.Add(Section(L.T("set.printing"),
+            Row(L.T("set.printer"), _printer),
+            Row(L.T("set.form"), WithButton(formBox, browse)),
+            Hint(L.T("set.formHint"))));
+        form.Children.Add(Section(L.T("set.company"),
+            Row(L.T("f.name"), Field("company.name", s)),
+            Row(L.T("f.street"), Field("company.street", s)),
+            Row(L.T("f.town"), TownZip(Field("company.town", s), Field("company.zip", s))),
+            Row(L.T("f.note"), Field("company.note", s)),
+            Hint(L.T("set.noteHint")),
+            Row(L.T("set.taxNo"), Field("company.tax_no", s)),
+            Row(L.T("set.operator"), Field("operator.name", s))));
+        form.Children.Add(Section(L.T("set.scale"),
+            Row(L.T("set.port"), _port),
+            Row(L.T("set.baud"), _baud),
             Row("", _sim),
-            Hint("A mérleg beállításai a program újraindítása után lépnek életbe.")));
+            Hint(L.T("set.scaleHint"))));
+        form.Children.Add(Section(L.T("set.language"), Row(L.T("set.language"), _language)));
 
-        var save = new Button { Content = "Mentés", MinWidth = 100, IsDefault = true };
-        var cancel = new Button { Content = "Mégse", MinWidth = 100, IsCancel = true };
+        var save = new Button { Content = L.T("common.save"), MinWidth = 100, IsDefault = true };
+        var cancel = new Button { Content = L.T("common.cancel"), MinWidth = 100, IsCancel = true };
         save.Click += (_, _) => Save();
         cancel.Click += (_, _) => Close();
         form.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancel, save } });
@@ -130,7 +134,7 @@ public sealed class SettingsWindow : Window
     private static Control TownZip(TextBox town, TextBox zip)
     {
         var g = new Grid { ColumnDefinitions = new("*,Auto,90") };
-        var l = new TextBlock { Text = "Ir.szám", Classes = { "label" }, Margin = new Thickness(12, 0, 8, 0) };
+        var l = new TextBlock { Text = L.T("f.zip"), Classes = { "label" }, Margin = new Thickness(12, 0, 8, 0) };
         Grid.SetColumn(l, 1);
         Grid.SetColumn(zip, 2);
         g.Children.Add(town);
@@ -147,7 +151,7 @@ public sealed class SettingsWindow : Window
         return p;
     }
 
-    private void Save()
+    private async void Save()
     {
         foreach (var (key, box) in _fields)
             _state.Db.SetSetting(key, string.IsNullOrWhiteSpace(box.Text) ? null : box.Text.Trim());
@@ -159,6 +163,13 @@ public sealed class SettingsWindow : Window
         if (_port.SelectedItem is string port) _state.Db.SetSetting("serial.port", port);
         if (_baud.SelectedItem is string baud) _state.Db.SetSetting("serial.baud", baud);
         _state.Db.SetSetting("scale.simulator", _sim.IsChecked == true ? "1" : "0");
+        var lang = L.Languages[Math.Max(0, _language.SelectedIndex)];
+        if (lang.Code != L.Current.Code)
+        {
+            _state.Db.SetSetting("ui.language", lang.Code);
+            L.Set(lang.Code);
+            if (await Dialog.Confirm(this, L.T("common.restartTitle"), L.T("common.restartNow"))) { _state.Restart(); return; }
+        }
         Close();
     }
 }

@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using System.Drawing.Printing;
 using System.Runtime.Versioning;
 using Avalonia;
@@ -30,7 +31,7 @@ public static class TicketService
             foreach (var path in candidates)
                 if (File.Exists(path)) return (TicketForm.Load(path), path);
         }
-        return (TicketForm.Parse(TicketForm.DefaultForm), "beépített minta");
+        return (TicketForm.Parse(TicketForm.DefaultForm), L.T("ticket.builtIn"));
     }
 
     public static List<TicketItem> Build(AppState state, Weighing w) =>
@@ -38,18 +39,17 @@ public static class TicketService
 
     public static string? PrinterName(AppState state) => state.Db.GetSetting("printer.name");
 
-    /// <summary>Prints the ticket. Returns an error message, or null on success.</summary>
     /// <summary>Everything needed to print a ticket; built on the UI thread (database), printed on any thread.</summary>
     public sealed record PrintJob(List<TicketItem> Items, string? Printer, string FontName, string DocName);
 
     public static PrintJob Prepare(AppState state, Weighing w) =>
-        new(Build(state, w), PrinterName(state), state.Db.GetSetting("printer.font_name") ?? "Arial", $"Mérlegjegy {w.TicketNo}");
+        new(Build(state, w), PrinterName(state), state.Db.GetSetting("printer.font_name") ?? "Arial", L.F("ticket.docName", w.TicketNo));
 
     /// <summary>Prints a prepared ticket (can run on a background thread). Returns an error message, or null on success.</summary>
     public static string? Run(PrintJob job)
     {
         if (!OperatingSystem.IsWindows())
-            return "A közvetlen nyomtatás egyelőre csak Windows alatt működik.";
+            return L.T("print.windowsOnly");
         try
         {
             PrintWindows(job.Items, job.Printer, job.FontName, job.DocName);
@@ -57,7 +57,7 @@ public static class TicketService
         }
         catch (Exception ex)
         {
-            return "Nyomtatási hiba: " + ex.Message;
+            return L.F("print.error", ex.Message);
         }
     }
 
@@ -95,7 +95,7 @@ public static class TicketService
         {
             doc.PrinterSettings.PrinterName = printer;
             if (!doc.PrinterSettings.IsValid)
-                throw new InvalidOperationException($"A(z) „{printer}” nyomtató nem található.");
+                throw new InvalidOperationException(L.F("print.noPrinter", printer));
         }
         var fonts = new Dictionary<double, System.Drawing.Font>();
         doc.EndPrint += (_, _) => { foreach (var f in fonts.Values) f.Dispose(); };
@@ -144,7 +144,7 @@ public sealed class TicketPreviewWindow : Window
     public TicketPreviewWindow(AppState state, Weighing w)
     {
         WindowFit.ClampToScreen(this);
-        Title = $"Mérlegjegy {w.TicketNo} – előnézet";
+        Title = L.F("ticket.previewTitle", w.TicketNo);
         Width = 980;
         Height = 760;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -179,23 +179,23 @@ public sealed class TicketPreviewWindow : Window
             }
         }
 
-        var print = new Button { Content = "Nyomtatás", MinWidth = 120, IsDefault = true };
-        var close = new Button { Content = "Bezárás", MinWidth = 100, IsCancel = true };
+        var print = new Button { Content = L.T("common.print"), MinWidth = 120, IsDefault = true };
+        var close = new Button { Content = L.T("common.close"), MinWidth = 100, IsCancel = true };
         var info = new StackPanel
         {
             Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center,
             Children =
             {
-                new TextBlock { Text = "Nyomtató:", VerticalAlignment = VerticalAlignment.Center },
+                new TextBlock { Text = L.T("common.printer"), VerticalAlignment = VerticalAlignment.Center },
                 Printers.Chooser(state),
             },
         };
         print.Click += async (_, _) =>
         {
             print.IsEnabled = false;
-            print.Content = "Nyomtatás…";
+            print.Content = L.T("common.printing");
             var err = await TicketService.PrintAsync(state, w);
-            if (err is not null) { await Dialog.Info(this, "Nyomtatás", err); print.IsEnabled = true; print.Content = "Nyomtatás"; }
+            if (err is not null) { await Dialog.Info(this, L.T("common.print"), err); print.IsEnabled = true; print.Content = L.T("common.print"); }
             else Close();
         };
         close.Click += (_, _) => Close();
@@ -228,7 +228,7 @@ public sealed class TicketPreviewWindow : Window
         }
         var zoomOut = new Button { Content = "−", MinWidth = 36 };
         var zoomIn = new Button { Content = "+", MinWidth = 36 };
-        var fit = new Button { Content = "Egész oldal" };
+        var fit = new Button { Content = L.T("common.fitPage") };
         zoomOut.Click += (_, _) => SetZoom(scale.ScaleX / 1.25);
         zoomIn.Click += (_, _) => SetZoom(scale.ScaleX * 1.25);
         fit.Click += (_, _) => Fit();

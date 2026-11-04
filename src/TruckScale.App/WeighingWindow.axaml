@@ -1,74 +1,75 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="using:TruckScale.App"
         x:Class="TruckScale.App.WeighingWindow"
-        Title="Jármű érkezése"
+        Title="{l:T w.titleIn}"
         Width="940" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Grid Margin="16" ColumnDefinitions="*,24,360" RowDefinitions="Auto,Auto">
 
     <!-- Left: what is being weighed -->
     <Grid Grid.Column="0" ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
-      <TextBlock Grid.Row="0" Classes="label" Text="Irány" />
+      <TextBlock Grid.Row="0" Classes="label" Text="{l:T f.direction}" />
       <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="16">
-        <RadioButton x:Name="DirIn" GroupName="dir" Content="Beszállítás" />
-        <RadioButton x:Name="DirOut" GroupName="dir" Content="Kiszállítás" />
+        <RadioButton x:Name="DirIn" GroupName="dir" Content="{l:T dir.in}" />
+        <RadioButton x:Name="DirOut" GroupName="dir" Content="{l:T dir.out}" />
       </StackPanel>
 
-      <TextBlock Grid.Row="1" Classes="label" Text="Ügyfél" />
+      <TextBlock Grid.Row="1" Classes="label" Text="{l:T f.customer}" />
       <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto,Auto,Auto">
-        <AutoCompleteBox x:Name="PartnerBox" PlaceholderText="Válasszon (gépeljen, vagy ▾)" />
+        <AutoCompleteBox x:Name="PartnerBox" PlaceholderText="{l:T w.partnerPlaceholder}" />
         <Button Grid.Column="1" x:Name="PartnerList" Content="▾" Margin="4,0,0,0" />
-        <Button Grid.Column="2" x:Name="PartnerNew" Content="Új…" Margin="4,0,0,0" ToolTip.Tip="Új ügyfél létrehozása" />
-        <Button Grid.Column="3" x:Name="PartnerEdit" Content="Szerkesztés…" Margin="4,0,0,0" ToolTip.Tip="A kiválasztott ügyfél adatainak módosítása" />
+        <Button Grid.Column="2" x:Name="PartnerNew" Content="{l:T common.new}" Margin="4,0,0,0" ToolTip.Tip="{l:T w.tip.newPartner}" />
+        <Button Grid.Column="3" x:Name="PartnerEdit" Content="{l:T common.edit}" Margin="4,0,0,0" ToolTip.Tip="{l:T w.tip.editPartner}" />
       </Grid>
 
       <!-- Customer details of the selected customer (read-only; change them with Szerkesztés…) -->
-      <TextBlock Grid.Row="2" Classes="label" Text="Utca" FontWeight="Normal" Margin="12,0,8,0" />
+      <TextBlock Grid.Row="2" Classes="label" Text="{l:T f.street}" FontWeight="Normal" Margin="12,0,8,0" />
       <TextBox Grid.Row="2" Grid.Column="1" x:Name="StreetBox" Classes="ro" IsReadOnly="True" Focusable="False" />
-      <TextBlock Grid.Row="3" Classes="label" Text="Település" FontWeight="Normal" Margin="12,0,8,0" />
+      <TextBlock Grid.Row="3" Classes="label" Text="{l:T f.town}" FontWeight="Normal" Margin="12,0,8,0" />
       <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,Auto,90">
         <TextBox x:Name="TownBox" Classes="ro" IsReadOnly="True" Focusable="False" />
-        <TextBlock Grid.Column="1" Classes="label" Text="Ir.szám" FontWeight="Normal" Margin="12,0,8,0" />
+        <TextBlock Grid.Column="1" Classes="label" Text="{l:T f.zip}" FontWeight="Normal" Margin="12,0,8,0" />
         <TextBox Grid.Column="2" x:Name="ZipBox" Classes="ro" IsReadOnly="True" Focusable="False" />
       </Grid>
-      <TextBlock Grid.Row="4" Classes="label" Text="Megjegyzés" FontWeight="Normal" Margin="12,0,8,0" />
+      <TextBlock Grid.Row="4" Classes="label" Text="{l:T f.note}" FontWeight="Normal" Margin="12,0,8,0" />
       <TextBox Grid.Row="4" Grid.Column="1" x:Name="PartnerNoteBox" Classes="ro" IsReadOnly="True" Focusable="False" />
       <TextBlock Grid.Row="5" Grid.Column="1" x:Name="PartnerInfo" Classes="hint" />
 
-      <TextBlock Grid.Row="6" Classes="label" Text="Rendszám" />
+      <TextBlock Grid.Row="6" Classes="label" Text="{l:T f.plate}" />
       <Grid Grid.Row="6" Grid.Column="1" ColumnDefinitions="*,Auto">
-        <AutoCompleteBox x:Name="PlateBox" PlaceholderText="pl. ABC123/XYZ789" />
+        <AutoCompleteBox x:Name="PlateBox" PlaceholderText="{l:T w.platePlaceholder}" />
         <Button Grid.Column="1" x:Name="PlateList" Content="▾" Margin="4,0,0,0" />
       </Grid>
       <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Spacing="16">
         <TextBlock x:Name="TareInfo" Classes="hint" VerticalAlignment="Center" />
-        <CheckBox x:Name="UseStoredTare" Content="Használ (tárolt tára, egy mérés)" />
+        <CheckBox x:Name="UseStoredTare" Content="{l:T w.useTare}" />
       </StackPanel>
 
-      <TextBlock Grid.Row="8" Classes="label" Text="Sofőr" />
+      <TextBlock Grid.Row="8" Classes="label" Text="{l:T f.driver}" />
       <Grid Grid.Row="8" Grid.Column="1" ColumnDefinitions="*,Auto">
-        <AutoCompleteBox x:Name="DriverBox" PlaceholderText="Vezetéknév Keresztnév" />
+        <AutoCompleteBox x:Name="DriverBox" PlaceholderText="{l:T w.driverPlaceholder}" />
         <Button Grid.Column="1" x:Name="DriverList" Content="▾" Margin="4,0,0,0" />
       </Grid>
 
-      <TextBlock Grid.Row="9" Classes="label" Text="Anyag" />
+      <TextBlock Grid.Row="9" Classes="label" Text="{l:T f.material}" />
       <Grid Grid.Row="9" Grid.Column="1" ColumnDefinitions="*,Auto">
-        <AutoCompleteBox x:Name="MaterialBox" PlaceholderText="pl. Árpa" />
+        <AutoCompleteBox x:Name="MaterialBox" PlaceholderText="{l:T w.materialPlaceholder}" />
         <Button Grid.Column="1" x:Name="MaterialList" Content="▾" Margin="4,0,0,0" />
       </Grid>
       <TextBlock Grid.Row="10" Grid.Column="1" x:Name="MaterialInfo" Classes="hint" />
 
-      <TextBlock Grid.Row="11" Classes="label" Text="Megjelölés" />
-      <TextBox Grid.Row="11" Grid.Column="1" x:Name="MarkingBox" PlaceholderText="szabad szöveg (nem kötelező)" />
+      <TextBlock Grid.Row="11" Classes="label" Text="{l:T f.marking}" />
+      <TextBox Grid.Row="11" Grid.Column="1" x:Name="MarkingBox" PlaceholderText="{l:T w.markingPlaceholder}" />
     </Grid>
 
     <!-- Right: weights -->
     <StackPanel Grid.Column="2" Spacing="8">
       <StackPanel x:Name="FirstPanel" Spacing="2" IsVisible="False">
-        <TextBlock Text="1. mérés" FontWeight="SemiBold" />
+        <TextBlock Text="{l:T w.first}" FontWeight="SemiBold" />
         <TextBlock x:Name="FirstInfo" FontSize="18" />
       </StackPanel>
-      <TextBlock x:Name="WeightTitle" Text="Össztömeg" FontWeight="SemiBold" HorizontalAlignment="Center" />
+      <TextBlock x:Name="WeightTitle" Text="{l:T w.totalWeight}" FontWeight="SemiBold" HorizontalAlignment="Center" />
       <Border x:Name="WeightHost" Height="110" />
       <TextBlock x:Name="HintText" Classes="hint" TextWrapping="Wrap" Foreground="#a33" MinHeight="34" />
       <Border x:Name="ResultPanel" IsVisible="False" Background="#eaf6ec" BorderBrush="#2a9d4b" BorderThickness="1" CornerRadius="4" Padding="12,8">
@@ -78,11 +79,11 @@
 
     <!-- Buttons -->
     <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
-      <Button x:Name="VoidButton" Content="Stornó (törlés)" MinWidth="120" IsVisible="False" Foreground="#a00" />
-      <Button x:Name="CancelButton" Content="Mégse" MinWidth="100" IsCancel="True" />
-      <Button x:Name="PrintButton" Content="Mérés + nyomtatás" MinWidth="180" Height="40" FontSize="16" FontWeight="Bold" IsEnabled="False"
-              ToolTip.Tip="Lezárás: mérés, mérlegjegy nyomtatása és az ablak bezárása egy lépésben" />
-      <Button x:Name="WeighButton" Content="Mérés" MinWidth="140" Height="40" FontSize="16" FontWeight="Bold" IsDefault="True" />
+      <Button x:Name="VoidButton" Content="{l:T w.void}" MinWidth="120" IsVisible="False" Foreground="#a00" />
+      <Button x:Name="CancelButton" Content="{l:T common.cancel}" MinWidth="100" IsCancel="True" />
+      <Button x:Name="PrintButton" Content="{l:T w.weighPrint}" MinWidth="180" Height="40" FontSize="16" FontWeight="Bold" IsEnabled="False"
+              ToolTip.Tip="{l:T w.tip.weighPrint}" />
+      <Button x:Name="WeighButton" Content="{l:T w.weigh}" MinWidth="140" Height="40" FontSize="16" FontWeight="Bold" IsDefault="True" />
     </StackPanel>
   </Grid>
 </Window>

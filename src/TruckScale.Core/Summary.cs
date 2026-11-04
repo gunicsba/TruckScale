@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using TruckScale.Core.Data;
 
 namespace TruckScale.Core;
@@ -8,7 +9,7 @@ public sealed record SummaryFilter(DateTime From, DateTime To, Direction? Direct
 
 public sealed record SummaryGroup(string Material, Direction Direction, int Count, long Gross, long Tare, long Net)
 {
-    public string DirectionText => Direction == Direction.In ? "Beszállítás" : "Kiszállítás";
+    public string DirectionText => L.T(Direction == Direction.In ? "dir.in" : "dir.out");
 }
 
 public sealed record SummaryTotal(int Count, long Gross, long Tare, long Net);
@@ -18,7 +19,7 @@ public enum SummaryGrouping { Material, MaterialPartner, PartnerMaterial }
 /// <summary>One line of the summary table; subtotal lines close a group in the two-level groupings.</summary>
 public sealed record SummaryRow(Direction Direction, string Level1, string? Level2, bool IsSubtotal, int Count, long Gross, long Tare, long Net)
 {
-    public string DirectionText => Direction == Direction.In ? "Beszállítás" : "Kiszállítás";
+    public string DirectionText => L.T(Direction == Direction.In ? "dir.in" : "dir.out");
 }
 
 public static class Summary
@@ -44,19 +45,19 @@ public static class Summary
     public static List<SummaryGroup> ByMaterial(IEnumerable<Weighing> rows) =>
         rows.GroupBy(w => (w.Direction, Key: Text.Normalize.NameKey(w.MaterialName)))
             .Select(g => new SummaryGroup(
-                g.Key.Key.Length == 0 ? "(nincs megadva)" : g.GroupBy(w => Text.Normalize.Clean(w.MaterialName)).OrderByDescending(x => x.Count()).First().Key,
+                g.Key.Key.Length == 0 ? L.T("sum.noMaterial") : g.GroupBy(w => Text.Normalize.Clean(w.MaterialName)).OrderByDescending(x => x.Count()).First().Key,
                 g.Key.Direction, g.Count(),
                 g.Sum(w => (long)(w.Gross ?? 0)), g.Sum(w => (long)(w.Tare ?? 0)), g.Sum(w => (long)(w.Net ?? 0))))
-            .OrderBy(g => g.Direction).ThenBy(g => g.Material, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("hu-HU"), true))
+            .OrderBy(g => g.Direction).ThenBy(g => g.Material, StringComparer.Create(L.Culture, true))
             .ToList();
 
-    private static readonly StringComparer Hu = StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("hu-HU"), true);
+    private static StringComparer Hu => StringComparer.Create(L.Culture, true);
 
     /// <summary>Most frequent spelling of a name within a group ("" -> "(nincs megadva)").</summary>
     private static string Spelling(IEnumerable<Weighing> g, Func<Weighing, string?> name)
     {
         var best = g.GroupBy(w => Text.Normalize.Clean(name(w))).OrderByDescending(x => x.Count()).First().Key;
-        return best.Length == 0 ? "(nincs megadva)" : best;
+        return best.Length == 0 ? L.T("sum.noMaterial") : best;
     }
 
     private static string MaterialKey(Weighing w) => Text.Normalize.NameKey(w.MaterialName);
@@ -87,7 +88,7 @@ public static class Summary
         {
             foreach (var inner in outer.Items.GroupBy(key2).OrderByDescending(g => g.Sum(w => (long)(w.Net ?? 0))))
                 result.Add(Row(outer.Direction, outer.Name, name2[inner.Key], false, inner));
-            result.Add(Row(outer.Direction, outer.Name, "Összesen", true, outer.Items));
+            result.Add(Row(outer.Direction, outer.Name, L.T("common.total"), true, outer.Items));
         }
         return result;
     }

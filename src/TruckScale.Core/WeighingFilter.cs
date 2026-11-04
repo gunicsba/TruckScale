@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using System.Globalization;
 using TruckScale.Core.Data;
 using TruckScale.Core.Text;
@@ -17,7 +18,7 @@ public sealed record WeighingFilter(
     public bool Matches(Weighing w) =>
         (Direction is null || w.Direction == Direction) &&
         Has(Ticket, w.TicketNo?.ToString(CultureInfo.InvariantCulture)) &&
-        Has(Date, w.ClosedAt?.ToString("yyyy.MM.dd. HH:mm", CultureInfo.InvariantCulture)) &&
+        Has(Date, $"{w.ClosedAt?.ToString("yyyy.MM.dd. HH:mm", CultureInfo.InvariantCulture)} {w.ClosedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {L.DateTime(w.ClosedAt)}") &&
         (string.IsNullOrWhiteSpace(Plate) || Normalize.PlateKey(w.Plate).Contains(Normalize.PlateKey(Plate))) &&
         Has(Partner, w.PartnerName) &&
         Has(Driver, w.DriverName) &&

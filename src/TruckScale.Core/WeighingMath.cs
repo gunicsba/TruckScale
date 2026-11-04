@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 namespace TruckScale.Core;
 
 public readonly record struct WeightResult(int Gross, int Tare, int Net);
@@ -18,8 +19,8 @@ public static class WeighingMath
     /// <summary>One weighing of the loaded truck with the vehicle's stored tare ("Használ").</summary>
     public static WeightResult FromStoredTare(int loaded, int storedTare)
     {
-        if (storedTare <= 0) throw new ArgumentOutOfRangeException(nameof(storedTare), "No stored tare.");
-        if (loaded <= storedTare) throw new InvalidOperationException($"The weight ({loaded} kg) is not more than the stored tare ({storedTare} kg).");
+        if (storedTare <= 0) throw new ArgumentOutOfRangeException(nameof(storedTare), L.T("db.noStoredTare"));
+        if (loaded <= storedTare) throw new InvalidOperationException(L.F("db.notAboveTare", L.Kg(loaded), L.Kg(storedTare)));
         return new WeightResult(loaded, storedTare, loaded - storedTare);
     }
 }

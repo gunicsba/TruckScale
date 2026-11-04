@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -31,8 +32,7 @@ public static partial class TicketForm
         CompanyHeader = 90,  // new: company name and address from the settings
         DirectionText = 91;  // new: Beszállítás / Kiszállítás
 
-    private static readonly CultureInfo Hu = CultureInfo.GetCultureInfo("hu-HU");
-
+    
     [GeneratedRegex(@"^<(\d+)><(\d+)><(\d+)><(\d+)><([LMR])><(\d+)><(\d+)><(\d+)><([^>]*)><(.*)>\s*$")]
     private static partial Regex FieldRegex();
 
@@ -62,9 +62,9 @@ public static partial class TicketForm
     /// <summary>Fills the form with the data of a closed weighing.</summary>
     public static List<TicketItem> Layout(IEnumerable<FormField> form, Weighing w, IReadOnlyDictionary<string, string?> settings)
     {
-        static string Kg(int? v) => v is int x ? x.ToString("N0", Hu) + " kg" : "";
-        static string D(DateTime? t) => t?.ToString("yyyy.MM.dd.", Hu) ?? "";
-        static string T(DateTime? t) => t?.ToString("HH:mm", Hu) ?? "";
+        static string Kg(int? v) => L.Kg(v);
+        static string D(DateTime? t) => L.Date(t);
+        static string T(DateTime? t) => L.Time(t);
         var company = string.Join(", ", new[]
         {
             settings.GetValueOrDefault("company.name"),
@@ -83,7 +83,7 @@ public static partial class TicketForm
             string text = f.Type switch
             {
                 StaticText => f.Text,
-                TicketNo => w.TicketNo?.ToString(Hu) ?? "",
+                TicketNo => w.TicketNo?.ToString(L.Culture) ?? "",
                 DateIn => D(w.FirstAt), DateOut => D(w.ClosedAt),
                 TimeIn => T(w.FirstAt), TimeOut => T(w.ClosedAt),
                 PartnerName => w.PartnerName ?? "",
@@ -107,8 +107,8 @@ public static partial class TicketForm
         return items;
     }
 
-    /// <summary>Built-in layout used when no .form file is configured: two copies on one A4 page.</summary>
-    public static readonly string DefaultForm = BuildDefault();
+    /// <summary>Built-in layout used when no .form file is configured: two copies on one A4 page (in the current language).</summary>
+    public static string DefaultForm => BuildDefault();
 
     private static string BuildDefault()
     {
@@ -118,26 +118,26 @@ public static partial class TicketForm
             sb.Append($"<{++n:000}><{type:00}><{x:000}><{y:000}><{a}><{size:00}><{width:000}><000><><{text}>\r\n");
         foreach (int dy in new[] { 0, 150 })
         {
-            F(StaticText, 105, 10 + dy, 'M', 16, "Mérlegjegy");
+            F(StaticText, 105, 10 + dy, 'M', 16, L.T("form.title"));
             F(CompanyHeader, 105, 19 + dy, 'M', 11);
             F(Line, 15, 27 + dy, 'L', 2, width: 180);
-            F(StaticText, 15, 31 + dy, 'L', 10, "Sorszám:"); F(TicketNo, 50, 31 + dy, 'L', 10);
-            F(StaticText, 115, 31 + dy, 'L', 10, "Irány:"); F(DirectionText, 150, 31 + dy, 'L', 10);
-            F(StaticText, 15, 40 + dy, 'L', 10, "Kezdés:"); F(DateIn, 50, 40 + dy, 'L', 10); F(TimeIn, 75, 40 + dy, 'L', 10);
-            F(StaticText, 115, 40 + dy, 'L', 10, "Zárás:"); F(DateOut, 150, 40 + dy, 'L', 10); F(TimeOut, 175, 40 + dy, 'L', 10);
-            F(StaticText, 15, 47 + dy, 'L', 10, "Cég:"); F(PartnerName, 50, 47 + dy, 'L', 10);
-            F(StaticText, 15, 53 + dy, 'L', 10, "Cím:"); F(PartnerAddress, 50, 53 + dy, 'L', 10);
-            F(StaticText, 15, 59 + dy, 'L', 10, "Rendszám:"); F(Plate, 50, 59 + dy, 'L', 10);
-            F(StaticText, 15, 65 + dy, 'L', 10, "Sofőr:"); F(Driver, 50, 65 + dy, 'L', 10);
-            F(StaticText, 115, 59 + dy, 'L', 10, "Anyag:"); F(Material, 150, 59 + dy, 'L', 10);
-            F(StaticText, 115, 65 + dy, 'L', 10, "Megjegyzés:"); F(MaterialNote, 150, 65 + dy, 'L', 10);
-            F(StaticText, 115, 71 + dy, 'L', 10, "Megjelölés:"); F(Marking, 150, 71 + dy, 'L', 10);
+            F(StaticText, 15, 31 + dy, 'L', 10, L.T("form.number")); F(TicketNo, 50, 31 + dy, 'L', 10);
+            F(StaticText, 115, 31 + dy, 'L', 10, L.T("form.direction")); F(DirectionText, 150, 31 + dy, 'L', 10);
+            F(StaticText, 15, 40 + dy, 'L', 10, L.T("form.start")); F(DateIn, 50, 40 + dy, 'L', 10); F(TimeIn, 75, 40 + dy, 'L', 10);
+            F(StaticText, 115, 40 + dy, 'L', 10, L.T("form.end")); F(DateOut, 150, 40 + dy, 'L', 10); F(TimeOut, 175, 40 + dy, 'L', 10);
+            F(StaticText, 15, 47 + dy, 'L', 10, L.T("form.company")); F(PartnerName, 50, 47 + dy, 'L', 10);
+            F(StaticText, 15, 53 + dy, 'L', 10, L.T("form.address")); F(PartnerAddress, 50, 53 + dy, 'L', 10);
+            F(StaticText, 15, 59 + dy, 'L', 10, L.T("form.plate")); F(Plate, 50, 59 + dy, 'L', 10);
+            F(StaticText, 15, 65 + dy, 'L', 10, L.T("form.driver")); F(Driver, 50, 65 + dy, 'L', 10);
+            F(StaticText, 115, 59 + dy, 'L', 10, L.T("form.material")); F(Material, 150, 59 + dy, 'L', 10);
+            F(StaticText, 115, 65 + dy, 'L', 10, L.T("form.note")); F(MaterialNote, 150, 65 + dy, 'L', 10);
+            F(StaticText, 115, 71 + dy, 'L', 10, L.T("form.marking")); F(Marking, 150, 71 + dy, 'L', 10);
             F(Line, 15, 79 + dy, 'L', 2, width: 180);
-            F(StaticText, 15, 83 + dy, 'L', 10, "Bruttó"); F(StaticText, 105, 83 + dy, 'M', 10, "Tára"); F(StaticText, 195, 83 + dy, 'R', 10, "Nettó");
+            F(StaticText, 15, 83 + dy, 'L', 10, L.T("f.gross")); F(StaticText, 105, 83 + dy, 'M', 10, L.T("f.tare")); F(StaticText, 195, 83 + dy, 'R', 10, L.T("f.net"));
             F(Gross, 15, 89 + dy, 'L', 12); F(Tare, 105, 89 + dy, 'M', 12); F(Net, 195, 89 + dy, 'R', 12);
             F(Line, 15, 97 + dy, 'L', 2, width: 180);
             F(StaticText, 50, 116 + dy, 'M', 10, "........................................"); F(StaticText, 160, 116 + dy, 'M', 10, "........................................");
-            F(StaticText, 50, 121 + dy, 'M', 10, "Átadó"); F(CompanyNote, 105, 121 + dy, 'M', 10); F(StaticText, 160, 121 + dy, 'M', 10, "Átvevő");
+            F(StaticText, 50, 121 + dy, 'M', 10, L.T("form.handedOver")); F(CompanyNote, 105, 121 + dy, 'M', 10); F(StaticText, 160, 121 + dy, 'M', 10, L.T("form.received"));
         }
         return sb.ToString();
     }

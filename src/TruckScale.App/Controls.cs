@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -45,16 +46,16 @@ public sealed class WeightDisplay : UserControl
         if (r is null)
         {
             _weight.Text = "-------";
-            _status.Text = "NINCS KAPCSOLAT";
+            _status.Text = L.T("scale.noConnection");
             _status.Foreground = Brushes.Orange;
             return;
         }
         _weight.Text = r.Status == ScaleStatus.Overload ? "OL" : r.Weight.ToString("N0", AppState.Hu);
         (_status.Text, _status.Foreground) = r.Status switch
         {
-            ScaleStatus.Stable => ("STABIL  kg", Brushes.LightGreen),
-            ScaleStatus.Unstable => ("MOZGÁS  kg", Brushes.Yellow),
-            _ => ("TÚLTERHELÉS", Brushes.Orange),
+            ScaleStatus.Stable => (L.T("scale.stable"), Brushes.LightGreen),
+            ScaleStatus.Unstable => (L.T("scale.unstable"), Brushes.Yellow),
+            _ => (L.T("scale.overload"), Brushes.Orange),
         };
     }
 }
@@ -62,10 +63,13 @@ public sealed class WeightDisplay : UserControl
 /// <summary>Small message / confirmation dialogs.</summary>
 public static class Dialog
 {
-    public static Task Info(Window owner, string title, string message) => Show(owner, title, message, "OK");
+    public static Task Info(Window owner, string title, string message) => Show(owner, title, message, L.T("common.ok"));
 
-    public static async Task<bool> Confirm(Window owner, string title, string message, string yes = "Igen", string no = "Nem") =>
-        await Show(owner, title, message, yes, no) == yes;
+    public static async Task<bool> Confirm(Window owner, string title, string message, string? yes = null, string? no = null)
+    {
+        yes ??= L.T("common.yes");
+        return await Show(owner, title, message, yes, no ?? L.T("common.no")) == yes;
+    }
 
     public static Task<string?> Show(Window owner, string title, string message, params string[] buttons)
     {

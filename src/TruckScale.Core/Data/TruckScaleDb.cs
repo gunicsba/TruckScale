@@ -1,3 +1,4 @@
+using TruckScale.Core.Localization;
 using System.Globalization;
 using Microsoft.Data.Sqlite;
 using TruckScale.Core.Text;
@@ -65,12 +66,12 @@ public sealed class TruckScaleDb : IDisposable
     public Partner SavePartner(Partner p)
     {
         var name = Normalize.Clean(p.Name);
-        if (name.Length == 0) throw new ArgumentException("A név nem lehet üres.");
+        if (name.Length == 0) throw new ArgumentException(L.T("db.emptyName"));
         var key = Normalize.NameKey(name);
         using var tx = _c.BeginTransaction();
         var clash = Query("SELECT id, name FROM partners WHERE active = 1 AND id <> $id", r => (Id: r.GetInt64(0), Name: r.GetString(1)), tx, ("$id", p.Id))
             .FirstOrDefault(x => Normalize.NameKey(x.Name) == key);
-        if (clash.Name is not null) throw new InvalidOperationException($"Már van ilyen nevű ügyfél: {clash.Name}");
+        if (clash.Name is not null) throw new InvalidOperationException(L.F("db.duplicatePartner", clash.Name));
         var saved = p with
         {
             Name = name, Zip = Normalize.CleanOrNull(p.Zip), Town = Normalize.CleanOrNull(p.Town),
@@ -90,7 +91,7 @@ public sealed class TruckScaleDb : IDisposable
     public void DeletePartner(long id)
     {
         if (Scalar("SELECT id FROM weighings WHERE status = 'OPEN' AND partner_id = $id", ("$id", id)) is not null)
-            throw new InvalidOperationException("Az ügyfél járműve az udvaron van – előbb zárja le vagy stornózza a mérést.");
+            throw new InvalidOperationException(L.T("db.partnerInYard"));
         Exec("UPDATE partners SET active = 0 WHERE id = $id", null, ("$id", id));
     }
 
@@ -224,7 +225,7 @@ public sealed class TruckScaleDb : IDisposable
         using var tx = _c.BeginTransaction();
         var v = Resolved(d, tx);
         if (Scalar("SELECT id FROM weighings WHERE status = 'OPEN' AND vehicle_id = $v", tx, ("$v", v.Vehicle.Id)) is not null)
-            throw new InvalidOperationException($"A(z) {v.Vehicle.Plate} rendszámú jármű már az udvaron van.");
+            throw new InvalidOperationException(L.F("db.inYard", v.Vehicle.Plate));
         var id = InsertWeighing(d, v, tx, new()
         {
             ["status"] = "OPEN",
@@ -260,7 +261,7 @@ public sealed class TruckScaleDb : IDisposable
     {
         using var tx = _c.BeginTransaction();
         var w = Query($"SELECT {WeighingCols} FROM weighings WHERE id = $id", ReadWeighing, tx, ("$id", id)).Single();
-        if (w.Status != WeighingStatus.Open) throw new InvalidOperationException("This weighing is not open.");
+        if (w.Status != WeighingStatus.Open) throw new InvalidOperationException(L.T("db.notOpen"));
         var res = WeighingMath.FromPair(w.FirstWeight ?? 0, weight);
         Exec("""
             UPDATE weighings SET status = 'DONE', ticket_no = $t, second_weight = $w, second_at = $at, closed_at = $at,
@@ -279,15 +280,15 @@ public sealed class TruckScaleDb : IDisposable
     {
         var n = Exec("UPDATE weighings SET status = 'VOID', closed_at = $at WHERE id = $id AND status = 'OPEN'",
             null, ("$at", Schema.Ts(at)), ("$id", id));
-        if (n != 1) throw new InvalidOperationException("This weighing is not open.");
+        if (n != 1) throw new InvalidOperationException(L.T("db.notOpen"));
     }
 
     private sealed record Refs(Partner Partner, Vehicle Vehicle, Driver? Driver, Material? Material);
 
     private Refs Resolved(WeighingDraft d, SqliteTransaction tx)
     {
-        if (string.IsNullOrWhiteSpace(d.PartnerName)) throw new ArgumentException("Az ügyfél nincs megadva.");
-        if (string.IsNullOrWhiteSpace(d.Plate)) throw new ArgumentException("A rendszám nincs megadva.");
+        if (string.IsNullOrWhiteSpace(d.PartnerName)) throw new ArgumentException(L.T("db.noPartner"));
+        if (string.IsNullOrWhiteSpace(d.Plate)) throw new ArgumentException(L.T("db.noPlate"));
         return new Refs(ResolvePartner(d.PartnerName, d.Partner, tx), ResolveVehicle(d.Plate, tx), ResolveDriver(d.DriverName, tx), ResolveMaterial(d.MaterialName, tx));
     }
 
