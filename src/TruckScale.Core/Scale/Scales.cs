@@ -24,40 +24,74 @@ public sealed record SerialSettings(string Port, int Baud = 9600, Parity Parity 
         s.GetValueOrDefault("serial.stop_bits") switch { "2" => StopBits.Two, "1.5" => StopBits.OnePointFive, _ => StopBits.One });
 }
 
-/// <summary>Reads <c>ST,GL,   12340kg</c> lines from the indicator; reconnects automatically.</summary>
-public sealed class SerialScale(SerialSettings settings) : IScale
+/// <summary>
+/// Reads lines from the scale indicator over a serial port and parses them with a <see cref="ScaleProtocol"/>;
+/// reconnects automatically. <see cref="RawReceived"/> passes on everything exactly as received (for the raw data window).
+/// </summary>
+public sealed class SerialScale(SerialSettings settings, ScaleProtocol? protocol = null) : IScale
 {
     private static readonly TimeSpan NoDataTimeout = TimeSpan.FromSeconds(2);
+    private readonly ScaleProtocol _protocol = protocol ?? new ScaleProtocol();
     private readonly CancellationTokenSource _cts = new();
     private Task? _loop;
 
     public event Action<ScaleReading?>? ReadingChanged;
+    /// <summary>Raw text as received (may contain partial lines and control characters).</summary>
+    public event Action<string>? RawReceived;
+    /// <summary>A complete line (without the terminator).</summary>
+    public event Action<string>? LineReceived;
+    /// <summary>Connection problem (e.g. the port is in use by another program).</summary>
+    public event Action<string>? Error;
+
     public string Description => $"{settings.Port} {settings.Baud}";
 
     public void Start() => _loop ??= Task.Run(() => Run(_cts.Token));
 
     private async Task Run(CancellationToken ct)
     {
+        var term = _protocol.Terminator;
         while (!ct.IsCancellationRequested)
         {
             try
             {
                 using var port = new SerialPort(settings.Port, settings.Baud, settings.Parity, settings.DataBits, settings.StopBits)
                 {
-                    NewLine = "\n",
-                    ReadTimeout = (int)NoDataTimeout.TotalMilliseconds,
+                    ReadTimeout = 300,
+                    Encoding = System.Text.Encoding.Latin1,
                 };
                 port.Open();
+                var buffer = new byte[1024];
+                var pending = new System.Text.StringBuilder();
+                var lastData = DateTime.UtcNow;
                 while (!ct.IsCancellationRequested)
                 {
-                    string line;
-                    try { line = port.ReadLine().TrimEnd('\r'); }
-                    catch (TimeoutException) { ReadingChanged?.Invoke(null); continue; }
-                    if (ScaleReading.TryParse(line) is { } reading) ReadingChanged?.Invoke(reading);
+                    int n;
+                    try { n = port.Read(buffer, 0, buffer.Length); }
+                    catch (TimeoutException)
+                    {
+                        if (DateTime.UtcNow - lastData > NoDataTimeout) { ReadingChanged?.Invoke(null); lastData = DateTime.UtcNow; }
+                        continue;
+                    }
+                    if (n <= 0) continue;
+                    lastData = DateTime.UtcNow;
+                    var text = System.Text.Encoding.Latin1.GetString(buffer, 0, n);
+                    RawReceived?.Invoke(text);
+                    pending.Append(text);
+                    var all = pending.ToString();
+                    int idx;
+                    while ((idx = all.IndexOf(term, StringComparison.Ordinal)) >= 0)
+                    {
+                        var line = all[..idx];
+                        all = all[(idx + term.Length)..];
+                        LineReceived?.Invoke(line);
+                        if (_protocol.Parse(line) is { } reading) ReadingChanged?.Invoke(reading);
+                    }
+                    pending.Clear().Append(all.Length > 4096 ? "" : all);   // no terminator for a long time: wrong setting
                 }
             }
-            catch (Exception) when (!ct.IsCancellationRequested)
+            catch (Exception ex) when (!ct.IsCancellationRequested)
             {
+                Error?.Invoke(ex.Message);
                 ReadingChanged?.Invoke(null);
                 try { await Task.Delay(2000, ct); } catch (OperationCanceledException) { }
             }
@@ -69,6 +103,66 @@ public sealed class SerialScale(SerialSettings settings) : IScale
         _cts.Cancel();
         try { _loop?.Wait(3000); } catch { /* shutting down */ }
         _cts.Dispose();
+    }
+}
+
+/// <summary>
+/// Automatic baud rate detection: listens at each speed for a moment and picks the one where the data
+/// looks like scale lines (lines that the protocol can read score highest, readable text scores a little).
+/// </summary>
+public static class BaudDetector
+{
+    public static readonly int[] Bauds = [9600, 4800, 2400, 19200, 1200, 38400, 57600, 115200];
+
+    public sealed record Result(int Baud, int Score, string Sample);
+
+    public static async Task<Result?> DetectAsync(string portName, Parity parity, int dataBits, StopBits stopBits, ScaleProtocol protocol,
+        IProgress<int>? progress = null, CancellationToken ct = default, int listenMs = 1500)
+    {
+        Result? best = null;
+        foreach (var baud in Bauds)
+        {
+            ct.ThrowIfCancellationRequested();
+            progress?.Report(baud);
+            var text = await Task.Run(() => Listen(portName, baud, parity, dataBits, stopBits, listenMs, ct), ct);
+            var score = Score(text, protocol);
+            if (score > (best?.Score ?? 0)) best = new Result(baud, score, text);
+            if (score >= 30) break;   // several good lines: no need to try further
+        }
+        return best;
+    }
+
+    /// <summary>Score of the received text: 10 per line the protocol reads, 1 if it is at least readable text.</summary>
+    public static int Score(string text, ScaleProtocol protocol)
+    {
+        if (text.Length == 0) return 0;
+        var lines = text.Split(protocol.Terminator).SkipLast(1).ToList();
+        int good = lines.Count(l => protocol.Parse(l) is not null || ScaleReading.TryParse(l) is not null);
+        if (good > 0) return good * 10;
+        double printable = text.Count(c => c is >= ' ' and <= '~' or '\r' or '\n') / (double)text.Length;
+        return printable > 0.9 && text.Length > 10 ? 1 : 0;
+    }
+
+    private static string Listen(string portName, int baud, Parity parity, int dataBits, StopBits stopBits, int ms, CancellationToken ct)
+    {
+        try
+        {
+            using var port = new SerialPort(portName, baud, parity, dataBits, stopBits) { ReadTimeout = 100, Encoding = System.Text.Encoding.Latin1 };
+            port.Open();
+            port.DiscardInBuffer();
+            var sb = new System.Text.StringBuilder();
+            var until = DateTime.UtcNow.AddMilliseconds(ms);
+            while (DateTime.UtcNow < until && !ct.IsCancellationRequested)
+            {
+                try { sb.Append(port.ReadExisting()); } catch (TimeoutException) { }
+                Thread.Sleep(50);
+            }
+            return sb.ToString();
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return "";
+        }
     }
 }
 
@@ -91,7 +185,9 @@ public sealed class SimulatedScale : IScale
         set { lock (_lock) { _target = Math.Max(0, value); _settleAt = DateTime.UtcNow.AddSeconds(1.5); } }
     }
 
-    public void Start() => _timer.Change(0, 250);
+    public bool IsRunning { get; private set; }
+
+    public void Start() { IsRunning = true; _timer.Change(0, 250); }
 
     private void Tick()
     {

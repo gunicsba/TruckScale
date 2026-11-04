@@ -36,7 +36,7 @@ public sealed class AppState : IDisposable
     public string[] Args { get; init; } = [];
 
     public required TruckScaleDb Db { get; init; }
-    public required IScale Scale { get; init; }
+    public required IScale Scale { get; set; }
     public SimulatedScale? Simulator => Scale as SimulatedScale;
     public string? ScaleNote { get; init; }
 
@@ -68,7 +68,7 @@ public sealed class AppState : IDisposable
         }
         else if (serial.Port.Length > 0 && SerialPort.GetPortNames().Contains(serial.Port, StringComparer.OrdinalIgnoreCase))
         {
-            scale = new SerialScale(serial);
+            scale = new SerialScale(serial, ScaleProtocol.From(settings));
         }
         else
         {
@@ -77,14 +77,51 @@ public sealed class AppState : IDisposable
         }
 
         var state = new AppState { Db = db, Scale = scale, ScaleNote = note, Args = args };
-        scale.ReadingChanged += r => Dispatcher.UIThread.Post(() =>
-        {
-            state.Reading = r;
-            state.ReadingUpdated?.Invoke();
-        });
-        scale.Start();
+        state.Attach(scale);
         TicketService.WarmUp(db.GetSetting("printer.name"));
         return state;
+    }
+
+    private void Attach(IScale scale)
+    {
+        Scale = scale;
+        scale.ReadingChanged += r => Dispatcher.UIThread.Post(() =>
+        {
+            if (!ReferenceEquals(Scale, scale)) return;   // an old, already replaced scale
+            Reading = r;
+            ReadingUpdated?.Invoke();
+        });
+        scale.Start();
+    }
+
+    /// <summary>
+    /// Releases the serial port (the raw data window opens it itself). The simulator keeps running.
+    /// Call <see cref="RestartScale"/> afterwards.
+    /// </summary>
+    public void StopScale()
+    {
+        if (Scale is not SerialScale) return;
+        Scale.Dispose();
+        Scale = new SimulatedScale();   // placeholder, not started: no readings
+        Reading = null;
+        ReadingUpdated?.Invoke();
+    }
+
+    /// <summary>Re-reads the scale settings (port, speed, protocol) and reconnects – no program restart needed.</summary>
+    public void RestartScale()
+    {
+        if (Simulator is not null && Scale is SimulatedScale { } sim && sim.IsRunning) return;   // simulator mode stays
+        var settings = Db.AllSettings();
+        var serial = SerialSettings.From(settings);
+        Scale.Dispose();
+        if (serial.Port.Length > 0 && SerialPort.GetPortNames().Contains(serial.Port, StringComparer.OrdinalIgnoreCase))
+            Attach(new SerialScale(serial, ScaleProtocol.From(settings)));
+        else
+        {
+            Scale = new SimulatedScale();
+            Reading = null;
+            ReadingUpdated?.Invoke();
+        }
     }
 
     public void Dispose()

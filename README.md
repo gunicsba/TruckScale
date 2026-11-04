@@ -21,7 +21,7 @@ C# / .NET 10 · [Avalonia](https://avaloniaui.net/) UI · SQLite · Windows, Lin
 - **Tickets:** printed on A4 from the old program's `.form` layouts or the samples in [`forms/`](forms) (or a built-in layout), with preview and zoom. Any past ticket can be reprinted. Each weighing has its own note, editable at both weighings and printed on the ticket.
 - **Napló (history):** every weighing, with per-column filters and sortable columns.
 - **Áttekintés (summary):** totals for any period, per grain and per customer, printable over multiple pages.
-- **Scale:** serial indicator sending `ST,GL,   12340kg` lines (ST = stable); built-in simulator for testing without a scale.
+- **Scale:** serial indicator. Lines are read like the old program (stable marker and weight at fixed positions; preset **BWS** = `ST,GL,   12340kg`) or recognised automatically. A **raw data window** shows exactly what the indicator sends, with a position ruler, live result, test line and **automatic baud rate detection**. Built-in simulator for testing without a scale.
 - **Languages:** Hungarian and English (menu *Nyelv / Language*); numbers and dates follow the language. Adding a language means adding one dictionary to `src/TruckScale.Core/Localization/Strings.cs`; a unit test checks that every key is translated.
 - **Migration:** imports the old `DATA.LIS` (Access/Jet) database. It merges duplicate plates, drivers and customers and checks the totals against the old data.
 

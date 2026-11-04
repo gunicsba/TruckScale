@@ -92,10 +92,22 @@ public sealed class SettingsWindow : Window
             Hint(L.T("set.noteHint")),
             Row(L.T("set.taxNo"), Field("company.tax_no", s)),
             Row(L.T("set.operator"), Field("operator.name", s))));
+        var scaleTest = new Button { Content = L.T("set.scaleTest") };
+        scaleTest.Click += async (_, _) =>
+        {
+            await new ScaleMonitorWindow(_state).ShowDialog(this);
+            // the test window may have saved port / speed: show the current values
+            var now = _state.Db.AllSettings();
+            var p = now.GetValueOrDefault("serial.port");
+            if (p is not null && _port.ItemsSource is List<string> list && !list.Contains(p)) { list.Insert(0, p); _port.ItemsSource = null; _port.ItemsSource = list; }
+            _port.SelectedItem = p;
+            _baud.SelectedItem = now.GetValueOrDefault("serial.baud") ?? "9600";
+        };
         form.Children.Add(Section(L.T("set.scale"),
             Row(L.T("set.port"), _port),
             Row(L.T("set.baud"), _baud),
             Row("", _sim),
+            Row("", scaleTest),
             Hint(L.T("set.scaleHint"))));
         form.Children.Add(Section(L.T("set.language"), Row(L.T("set.language"), _language)));
 

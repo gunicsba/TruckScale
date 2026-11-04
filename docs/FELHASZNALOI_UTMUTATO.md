@@ -153,7 +153,23 @@ Az **Előnézet** a nyomtatandó oldalakat mutatja, a **Nyomtatás** kinyomtatja
 
   A minták a cégnevet és -címet, valamint a megjegyzést (pl. hrsz) a Beállításból veszik, így bármelyik gazdaság használhatja őket.
 - **Cég:** a jegy fejlécében szereplő adatok. A **Megjegyzés** (pl. „… 0123/4 Hrsz”) az Átadó és Átvevő aláírás között jelenik meg.
-- **Mérleg:** soros port és sebesség (a mérleg 9600 baudon küld), valamint a **Szimulátor** mérleg nélküli próbához. A mérleg beállításai a program újraindítása után lépnek életbe.
+- **Mérleg:** soros port és sebesség (a mérleg 9600 baudon küld), valamint a **Szimulátor** mérleg nélküli próbához. A szimulátor be- és kikapcsolása a program újraindítása után lép életbe.
+
+### Mérleg teszt / nyers adat
+
+A **Beállítás → Mérleg teszt / nyers adat…** gombbal lehet a mérlegműszer illesztését belőni:
+
+1. **Kapcsolat:** soros port, sebesség, paritás, adatbit, stopbit és sorvége (a BWS műszer CR LF-et küld). A **Kapcsolódás** után alul **élőben látszik minden, amit a műszer küld**, a láthatatlan karakterekkel együtt (`<CR>`, `<LF>`).
+2. **Sebesség keresése:** ha nem tudod a sebességet, a program sorban végigpróbálja a gyakoriakat (9600, 4800, 2400, 19200 …), és azt választja, amelyiken értelmes sorok jönnek.
+3. **Feldolgozás:** melyik karakterek jelentik a stabil jelzést és a súlyt.
+   - **BWS (ST,GL,…kg):** a régi program beállítása. A stabil jelzés a 0. helyen 2 hosszan, értéke „ST”; a súly a 6. helytől 8 hosszan, 0 tizedesjeggyel.
+   - **Automatikus:** a program maga ismeri fel az `ST/US/OL,GL/NT,…kg` sorokat.
+   - **Egyéni:** bármilyen kezdet és hossz megadható; a mezők átírásakor ide vált.
+4. A középső szürke dobozban az utolsó sor fölött egy **pozícióvonalzó** (0123456789…) van, alatta a jelölés (`SS    WWWWWWWW`): `S` = stabil jelzés, `W` = súly. Alatta azonnal látszik az eredmény, például **Stabil: igen, Súly: 23 480 kg**.
+5. **Próba sor:** mérleg nélkül is kipróbálható, ha beírsz vagy bemásolsz egy sort.
+6. **Mentés:** a program újraindítás nélkül az új beállítással kapcsolódik a mérleghez.
+
+Amíg ebben az ablakban kapcsolódsz, a program saját mérlegkapcsolata szünetel. Ha a portot másik program (pl. a régi TS.exe) használja, a hibaüzenet alul jelenik meg.
 
 ## Adatok és mentés
 
