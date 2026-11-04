@@ -79,6 +79,18 @@ public partial class MainWindow : Window
         if (e.Key == Key.Enter) { e.Handled = true; OnLeave(sender, e); }
     }
 
+    private async void OnTodayDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (TodayGrid.SelectedItem is Weighing { Status: WeighingStatus.Done } w)
+            await new TicketPreviewWindow(_state, w).ShowDialog(this);
+    }
+
+    private async void OnData(object? sender, RoutedEventArgs e)
+    {
+        await new PartnersWindow(_state).ShowDialog(this);
+        Refresh();
+    }
+
     private void OnExit(object? sender, RoutedEventArgs e) => Close();
 
     private async void OnAbout(object? sender, RoutedEventArgs e) =>

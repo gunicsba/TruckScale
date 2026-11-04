@@ -21,6 +21,8 @@ public partial class WeighingWindow : Window
     private readonly List<Driver> _drivers = [];
     private readonly List<Material> _materials = [];
     private bool _busy;
+    private Weighing? _done;                   // set once the ticket is closed: only Nyomtatás / Bezárás remain
+    private long? _detailsFor;                 // customer whose details are currently in the fields
 
     public WeighingWindow() => InitializeComponent(); // XAML designer only
 
@@ -52,7 +54,10 @@ public partial class WeighingWindow : Window
         MaterialBox.Text = MaterialText(open);
         MarkingBox.Text = open.Marking;
 
-        foreach (var c in new Control[] { DirIn, DirOut, PartnerBox, PartnerList, PlateBox, PlateList, DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox })
+        if (_partners.FirstOrDefault(p => p.Id == open.PartnerId) is { } partner) FillDetails(partner);
+        PartnerNew.IsVisible = PartnerEdit.IsVisible = false;
+        foreach (var c in new Control[] { DirIn, DirOut, PartnerBox, PartnerList,
+                     PlateBox, PlateList, DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox })
             c.IsEnabled = false;
         UseStoredTare.IsVisible = false;
         FirstPanel.IsVisible = true;
@@ -73,7 +78,7 @@ public partial class WeighingWindow : Window
         state.ReadingUpdated += OnReading;
         Closed += (_, _) => state.ReadingUpdated -= OnReading;
 
-        _partners.AddRange(state.Db.Partners());
+        _partners.AddRange(state.Db.Partners().OrderBy(p => p.Name, StringComparer.Create(AppState.Hu, true)));
         _vehicles.AddRange(state.Db.Vehicles());
         _drivers.AddRange(state.Db.Drivers());
         _materials.AddRange(state.Db.Materials());
@@ -93,10 +98,41 @@ public partial class WeighingWindow : Window
                 DriverBox.Text = drv.FullName;
         };
 
+        PartnerNew.Click += async (_, _) =>
+        {
+            var typed = CurrentPartner is null ? Normalize.CleanOrNull(PartnerBox.Text) : null;
+            if (await new PartnerEditWindow(_state, null, typed).ShowDialog<Partner?>(this) is { } p) UsePartner(p);
+        };
+        PartnerEdit.Click += async (_, _) =>
+        {
+            if (CurrentPartner is { } cur && await new PartnerEditWindow(_state, cur).ShowDialog<Partner?>(this) is { } p) UsePartner(p);
+        };
         WeighButton.Click += OnWeigh;
+        PrintButton.Click += OnPrint;
         VoidButton.Click += OnVoid;
         CancelButton.Click += (_, _) => Close();
         OnReading();
+    }
+
+    /// <summary>After creating/editing a customer: refresh the list and select it.</summary>
+    private void UsePartner(Partner p)
+    {
+        _partners.Clear();
+        _partners.AddRange(_state.Db.Partners().OrderBy(p => p.Name, StringComparer.Create(AppState.Hu, true)));
+        PartnerBox.ItemsSource = null;
+        PartnerBox.ItemsSource = _partners;
+        _detailsFor = null;
+        PartnerBox.Text = p.Name;
+        UpdateInfo();
+    }
+
+    private void FillDetails(Partner? p)
+    {
+        StreetBox.Text = p?.Street;
+        TownBox.Text = p?.Town;
+        ZipBox.Text = p?.Zip;
+        PartnerNoteBox.Text = p?.Note;
+        _detailsFor = p?.Id;
     }
 
     private static string? MaterialText(Weighing w) =>
@@ -145,7 +181,7 @@ public partial class WeighingWindow : Window
     {
         if (_open is not null)
         {
-            PartnerInfo.Text = _open.PartnerAddress ?? "";
+            PartnerInfo.Text = "";
             TareInfo.Text = "";
             MaterialInfo.Text = "";
             UpdateHint();
@@ -153,9 +189,13 @@ public partial class WeighingWindow : Window
         }
 
         var p = CurrentPartner;
-        PartnerInfo.Text = p is null
-            ? (string.IsNullOrWhiteSpace(PartnerBox.Text) ? "" : "Új ügyfél – mentéskor felvesszük.")
-            : p.Address;
+        // Switching to another known customer loads its details; switching to a new name clears them.
+        if (p is not null && p.Id != _detailsFor) FillDetails(p);
+        else if (p is null && _detailsFor is not null) { FillDetails(null); }
+        PartnerInfo.Text = p is null && !string.IsNullOrWhiteSpace(PartnerBox.Text)
+            ? "Nincs ilyen ügyfél – válasszon a listából, vagy hozza létre: Új…"
+            : "";
+        PartnerEdit.IsEnabled = p is not null;
 
         var v = CurrentVehicle;
         if (v?.LastTare is int tare)
@@ -185,6 +225,7 @@ public partial class WeighingWindow : Window
     private void UpdateHint()
     {
         var problem = Problem();
+        if (_done is not null) { WeighButton.IsEnabled = false; return; }
         HintText.Text = problem ?? (_open is null && UseStoredTare.IsChecked == true
             ? $"Egy mérés: nettó = mért súly − {AppState.Kg(CurrentVehicle?.LastTare)}"
             : "");
@@ -193,13 +234,15 @@ public partial class WeighingWindow : Window
 
     private string? Problem()
     {
+        if (_done is not null) return "";
         var r = _state.Reading;
         if (r is null) return "Nincs kapcsolat a mérleggel.";
         if (r.Status == ScaleStatus.Overload) return "Túlterhelés.";
         if (!r.IsStable) return "A mérleg nem stabil – várjon.";
         if (r.Weight <= 0) return "A mérleg üres.";
         if (_open is not null) return null;
-        if (string.IsNullOrWhiteSpace(PartnerBox.Text)) return "Adja meg az ügyfelet.";
+        if (string.IsNullOrWhiteSpace(PartnerBox.Text)) return "Válassza ki az ügyfelet.";
+        if (CurrentPartner is null) return "Ismeretlen ügyfél – válasszon a listából, vagy hozza létre (Új…).";
         if (Normalize.PlateKey(PlateBox.Text).Length == 0) return "Adja meg a rendszámot.";
         if (UseStoredTare.IsChecked == true && CurrentVehicle?.LastTare is int t && r.Weight <= t)
             return $"A mért súly nem több, mint a tárolt tára ({AppState.Kg(t)}).";
@@ -220,20 +263,18 @@ public partial class WeighingWindow : Window
                 if (Math.Abs(weight - (_open.FirstWeight ?? 0)) < 200 &&
                     !await Dialog.Confirm(this, "Mérés", $"A két mérés szinte azonos ({AppState.Kg(_open.FirstWeight)} / {AppState.Kg(weight)}).\nBiztosan lezárja?"))
                     return;
-                var done = _state.Db.CloseWeighing(_open.Id, weight, now);
-                await ShowTicket(done);
-                Close();
+                ShowDone(_state.Db.CloseWeighing(_open.Id, weight, now));
                 return;
             }
 
             var draft = new WeighingDraft(
                 DirIn.IsChecked == true ? Direction.In : Direction.Out,
-                PartnerBox.Text ?? "", PlateBox.Text ?? "", DriverBox.Text, MaterialBox.Text, MarkingBox.Text);
+                CurrentPartner!.Name, PlateBox.Text ?? "", DriverBox.Text, MaterialBox.Text, MarkingBox.Text);
 
             if (UseStoredTare.IsChecked == true)
             {
-                var done = _state.Db.SingleWeighing(draft, weight, now);
-                await ShowTicket(done);
+                ShowDone(_state.Db.SingleWeighing(draft, weight, now));
+                return;
             }
             else
             {
@@ -253,12 +294,34 @@ public partial class WeighingWindow : Window
         }
     }
 
-    private async Task ShowTicket(Weighing w) =>
-        // TODO: print the ticket from the .form layout (next step).
-        await Dialog.Info(this, $"Mérlegjegy {w.TicketNo}",
-            $"Mérlegjegy: {w.TicketNo}   ({w.DirectionText})\n" +
-            $"{w.Plate} – {w.PartnerName}\n{w.MaterialName}\n\n" +
-            $"Bruttó:  {AppState.Kg(w.Gross)}\nTára:    {AppState.Kg(w.Tare)}{(w.StoredTare ? " (tárolt)" : "")}\nNettó:   {AppState.Kg(w.Net)}");
+    /// <summary>The ticket is closed: show the result; only Nyomtatás and Bezárás remain.</summary>
+    private void ShowDone(Weighing w)
+    {
+        _done = w;
+        foreach (var c in new Control[] { DirIn, DirOut, PartnerBox, PartnerList, PartnerNew, PartnerEdit, PlateBox, PlateList,
+                     DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox })
+            c.IsEnabled = false;
+        VoidButton.IsVisible = false;
+        CancelButton.Content = "Bezárás";
+        Title = $"Mérlegjegy {w.TicketNo} – {w.DirectionText}";
+        ResultText.Text = $"Mérlegjegy: {w.TicketNo}\n" +
+                          $"Bruttó: {AppState.Kg(w.Gross),12}\n" +
+                          $"Tára:   {AppState.Kg(w.Tare),12}{(w.StoredTare ? " (tárolt)" : "")}\n" +
+                          $"Nettó:  {AppState.Kg(w.Net),12}";
+        ResultPanel.IsVisible = true;
+        PrintButton.IsEnabled = true;
+        PrintButton.IsDefault = true;
+        WeighButton.IsDefault = false;
+        UpdateHint();
+        PrintButton.Focus();
+    }
+
+    private async void OnPrint(object? sender, RoutedEventArgs e)
+    {
+        if (_done is null) return;
+        if (TicketService.Print(_state, _done) is { } err) await Dialog.Info(this, "Nyomtatás", err);
+        else HintText.Text = $"Mérlegjegy {_done.TicketNo} elküldve a nyomtatóra.";
+    }
 
     private async void OnVoid(object? sender, RoutedEventArgs e)
     {

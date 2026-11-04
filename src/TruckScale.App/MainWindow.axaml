@@ -44,7 +44,7 @@
             <TextBlock Text="Napló" HorizontalAlignment="Center" />
           </StackPanel>
         </Button>
-        <Button Classes="tool" IsEnabled="False" ToolTip.Tip="Hamarosan">
+        <Button Classes="tool" Click="OnData" ToolTip.Tip="Ügyfelek kezelése">
           <StackPanel Spacing="4" HorizontalAlignment="Center">
             <PathIcon Width="40" Height="40" Foreground="#6a5acd" Data="M3,3 H21 V21 H3 Z M5,5 V9 H19 V5 Z M5,11 V14 H11 V11 Z M13,11 V14 H19 V11 Z M5,16 V19 H11 V16 Z M13,16 V19 H19 V16 Z" />
             <TextBlock Text="Adatállomány" HorizontalAlignment="Center" />
@@ -98,7 +98,8 @@
         </DataGrid>
       </TabItem>
       <TabItem x:Name="TodayTab" Header="Mai mérések">
-        <DataGrid x:Name="TodayGrid" IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="Horizontal" CanUserResizeColumns="True">
+        <DataGrid x:Name="TodayGrid" IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="Horizontal" CanUserResizeColumns="True"
+                  DoubleTapped="OnTodayDoubleTapped" ToolTip.Tip="Dupla kattintás: mérlegjegy (előnézet, újranyomtatás)">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Jegy" Binding="{Binding TicketNo}" />
             <DataGridTextColumn Header="Állapot" Binding="{Binding StatusText}" />

@@ -4,7 +4,7 @@ public enum Direction { In, Out }
 
 public enum WeighingStatus { Open, Done, Void }
 
-public sealed record Partner(long Id, string Name, string? Zip, string? Town, string? Street)
+public sealed record Partner(long Id, string Name, string? Zip, string? Town, string? Street, string? Note = null)
 {
     public string Address => string.Join(", ", new[] { Street, string.Join(' ', new[] { Zip, Town }.Where(s => !string.IsNullOrWhiteSpace(s))) }
         .Where(s => !string.IsNullOrWhiteSpace(s)));
@@ -28,6 +28,9 @@ public sealed record Material(long Id, string Name, string? Note, string? Commen
     public override string ToString() => Display;
 }
 
+/// <summary>Customer details as edited on the arrival screen; saved to the customer on Mérés.</summary>
+public sealed record PartnerDetails(string? Street, string? Town, string? Zip, string? Note);
+
 /// <summary>What the operator chose on the arrival screen before the first Mérés.</summary>
 public sealed record WeighingDraft(
     Direction Direction,
@@ -35,7 +38,8 @@ public sealed record WeighingDraft(
     string Plate,
     string? DriverName,
     string? MaterialName,
-    string? Marking);
+    string? Marking,
+    PartnerDetails? Partner = null);
 
 public sealed record Weighing
 {

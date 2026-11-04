@@ -103,3 +103,63 @@ public sealed class WeighingTests : IDisposable
         Assert.Equal(2, _db.Vehicles().Count);
     }
 }
+
+public sealed class PartnerDetailsTests : IDisposable
+{
+    private readonly string _path = Path.Combine(Path.GetTempPath(), $"ts-test-{Guid.NewGuid():N}.db");
+    private readonly TruckScaleDb _db;
+    public PartnerDetailsTests() => _db = TruckScaleDb.OpenOrCreate(_path);
+    public void Dispose() { _db.Dispose(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_path); }
+
+    [Fact]
+    public void Details_are_saved_for_new_and_updated_for_existing_partner()
+    {
+        var t = new DateTime(2026, 7, 1, 8, 0, 0);
+        var w1 = _db.StartWeighing(new WeighingDraft(Direction.In, "Új Ügyfél", "AAA111", null, null, null,
+            new PartnerDetails("Fő utca 1", "Falu", "1234", "első")), 20000, t);
+        Assert.Equal("Fő utca 1, 1234 Falu", w1.PartnerAddress);
+        var p = Assert.Single(_db.Partners());
+        Assert.Equal(("1234", "Falu", "Fő utca 1", "első"), (p.Zip, p.Town, p.Street, p.Note));
+
+        var w2 = _db.StartWeighing(new WeighingDraft(Direction.In, "új ügyfél", "BBB222", null, null, null,
+            new PartnerDetails("Kossuth út 2", "Falu", "1234", null)), 20000, t);
+        Assert.Equal("Kossuth út 2, 1234 Falu", w2.PartnerAddress);
+        p = Assert.Single(_db.Partners());
+        Assert.Equal(("Kossuth út 2", null), (p.Street, p.Note));
+        Assert.Equal("Fő utca 1, 1234 Falu", _db.GetWeighing(w1.Id).PartnerAddress); // old snapshot unchanged
+    }
+}
+
+public sealed class PartnerEditTests : IDisposable
+{
+    private readonly string _path = Path.Combine(Path.GetTempPath(), $"ts-test-{Guid.NewGuid():N}.db");
+    private readonly TruckScaleDb _db;
+    public PartnerEditTests() => _db = TruckScaleDb.OpenOrCreate(_path);
+    public void Dispose() { _db.Dispose(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_path); }
+
+    [Fact]
+    public void Create_update_delete()
+    {
+        var a = _db.SavePartner(new Partner(0, "  Első  Kft ", "1234", "Falu", "Fő u. 1", null));
+        Assert.NotEqual(0, a.Id);
+        Assert.Equal("Első Kft", a.Name);
+        _db.SavePartner(a with { Street = "Kossuth 2", Note = "x" });
+        Assert.Equal("Kossuth 2", Assert.Single(_db.Partners()).Street);
+
+        Assert.Throws<InvalidOperationException>(() => _db.SavePartner(new Partner(0, "első kft", null, null, null)));
+        Assert.Throws<ArgumentException>(() => _db.SavePartner(new Partner(0, "  ", null, null, null)));
+
+        _db.DeletePartner(a.Id);
+        Assert.Empty(_db.Partners());
+        // a deleted name can be used again
+        _db.SavePartner(new Partner(0, "Első Kft", null, null, null));
+    }
+
+    [Fact]
+    public void Cannot_delete_partner_with_truck_in_yard()
+    {
+        var w = _db.StartWeighing(new WeighingDraft(Direction.In, "Ügyfél", "AAA111", null, null, null), 20000, DateTime.Now);
+        Assert.Throws<InvalidOperationException>(() => _db.DeletePartner(w.PartnerId!.Value));
+        Assert.Equal(1, _db.PartnerUsage()[w.PartnerId!.Value].Count);
+    }
+}

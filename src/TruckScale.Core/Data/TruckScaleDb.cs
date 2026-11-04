@@ -53,8 +53,46 @@ public sealed class TruckScaleDb : IDisposable
 
     // ------------------------------------------------------------------ master data
 
-    public List<Partner> Partners() => Query("SELECT id, name, zip, town, street FROM partners WHERE active = 1 ORDER BY name",
-        r => new Partner(r.GetInt64(0), r.GetString(1), Str(r, 2), Str(r, 3), Str(r, 4)));
+    public List<Partner> Partners() => Query("SELECT id, name, zip, town, street, note FROM partners WHERE active = 1 ORDER BY name",
+        r => new Partner(r.GetInt64(0), r.GetString(1), Str(r, 2), Str(r, 3), Str(r, 4), Str(r, 5)));
+
+    /// <summary>Number of weighings and last weighing time per customer (for the customer list).</summary>
+    public Dictionary<long, (int Count, DateTime? Last)> PartnerUsage() =>
+        Query("SELECT partner_id, COUNT(*), MAX(COALESCE(closed_at, first_at)) FROM weighings WHERE partner_id IS NOT NULL AND status <> 'VOID' GROUP BY partner_id",
+            r => (Id: r.GetInt64(0), Count: r.GetInt32(1), Last: Dt(r, 2))).ToDictionary(x => x.Id, x => (x.Count, x.Last));
+
+    /// <summary>Creates (Id = 0) or updates a customer. The name must not clash with another active customer.</summary>
+    public Partner SavePartner(Partner p)
+    {
+        var name = Normalize.Clean(p.Name);
+        if (name.Length == 0) throw new ArgumentException("A név nem lehet üres.");
+        var key = Normalize.NameKey(name);
+        using var tx = _c.BeginTransaction();
+        var clash = Query("SELECT id, name FROM partners WHERE active = 1 AND id <> $id", r => (Id: r.GetInt64(0), Name: r.GetString(1)), tx, ("$id", p.Id))
+            .FirstOrDefault(x => Normalize.NameKey(x.Name) == key);
+        if (clash.Name is not null) throw new InvalidOperationException($"Már van ilyen nevű ügyfél: {clash.Name}");
+        var saved = p with
+        {
+            Name = name, Zip = Normalize.CleanOrNull(p.Zip), Town = Normalize.CleanOrNull(p.Town),
+            Street = Normalize.CleanOrNull(p.Street), Note = Normalize.CleanOrNull(p.Note),
+        };
+        if (p.Id == 0)
+            saved = saved with { Id = InsertId("INSERT INTO partners(name, zip, town, street, note) VALUES ($n, $z, $t, $s, $no)", tx,
+                ("$n", saved.Name), ("$z", saved.Zip), ("$t", saved.Town), ("$s", saved.Street), ("$no", saved.Note)) };
+        else
+            Exec("UPDATE partners SET name = $n, zip = $z, town = $t, street = $s, note = $no WHERE id = $id", tx,
+                ("$n", saved.Name), ("$z", saved.Zip), ("$t", saved.Town), ("$s", saved.Street), ("$no", saved.Note), ("$id", p.Id));
+        tx.Commit();
+        return saved;
+    }
+
+    /// <summary>Removes a customer from the lists. Its weighings (and their tickets) are kept unchanged.</summary>
+    public void DeletePartner(long id)
+    {
+        if (Scalar("SELECT id FROM weighings WHERE status = 'OPEN' AND partner_id = $id", ("$id", id)) is not null)
+            throw new InvalidOperationException("Az ügyfél járműve az udvaron van – előbb zárja le vagy stornózza a mérést.");
+        Exec("UPDATE partners SET active = 0 WHERE id = $id", null, ("$id", id));
+    }
 
     public List<Vehicle> Vehicles() => Query("SELECT id, plate, last_tare, last_tare_at, default_driver_id FROM vehicles WHERE active = 1 ORDER BY plate",
         r => new Vehicle(r.GetInt64(0), r.GetString(1), Int(r, 2), Dt(r, 3), Long(r, 4)));
@@ -77,15 +115,29 @@ public sealed class TruckScaleDb : IDisposable
 
     // Find by normalised text among ALL rows (a matching inactive row is re-activated), otherwise create.
 
-    private Partner ResolvePartner(string name, SqliteTransaction tx)
+    private Partner ResolvePartner(string name, PartnerDetails? details, SqliteTransaction tx)
     {
         var key = Normalize.NameKey(name);
-        var match = Query("SELECT id, name, zip, town, street, active FROM partners", r => (P: new Partner(r.GetInt64(0), r.GetString(1), Str(r, 2), Str(r, 3), Str(r, 4)), Active: r.GetInt64(5) == 1), tx)
+        var match = Query("SELECT id, name, zip, town, street, note, active FROM partners", r => (P: new Partner(r.GetInt64(0), r.GetString(1), Str(r, 2), Str(r, 3), Str(r, 4), Str(r, 5)), Active: r.GetInt64(6) == 1), tx)
             .Where(x => Normalize.NameKey(x.P.Name) == key).OrderByDescending(x => x.Active).Select(x => x.P).FirstOrDefault();
-        if (match is not null) { Exec("UPDATE partners SET active = 1 WHERE id = $id", tx, ("$id", match.Id)); return match; }
-        var clean = Normalize.Clean(name);
-        var id = InsertId("INSERT INTO partners(name) VALUES ($n)", tx, ("$n", clean));
-        return new Partner(id, clean, null, null, null);
+        long id;
+        if (match is not null)
+        {
+            id = match.Id;
+            Exec("UPDATE partners SET active = 1 WHERE id = $id", tx, ("$id", id));
+            if (details is null) return match;
+        }
+        else
+        {
+            id = InsertId("INSERT INTO partners(name) VALUES ($n)", tx, ("$n", Normalize.Clean(name)));
+            if (details is null) return new Partner(id, Normalize.Clean(name), null, null, null);
+        }
+        // The arrival screen shows the stored details, so what is on screen is what gets saved.
+        var p = new Partner(id, match?.Name ?? Normalize.Clean(name),
+            Normalize.CleanOrNull(details.Zip), Normalize.CleanOrNull(details.Town), Normalize.CleanOrNull(details.Street), Normalize.CleanOrNull(details.Note));
+        Exec("UPDATE partners SET zip = $z, town = $t, street = $s, note = $n WHERE id = $id", tx,
+            ("$z", p.Zip), ("$t", p.Town), ("$s", p.Street), ("$n", p.Note), ("$id", id));
+        return p;
     }
 
     private Vehicle ResolveVehicle(string plate, SqliteTransaction tx)
@@ -236,7 +288,7 @@ public sealed class TruckScaleDb : IDisposable
     {
         if (string.IsNullOrWhiteSpace(d.PartnerName)) throw new ArgumentException("Az ügyfél nincs megadva.");
         if (string.IsNullOrWhiteSpace(d.Plate)) throw new ArgumentException("A rendszám nincs megadva.");
-        return new Refs(ResolvePartner(d.PartnerName, tx), ResolveVehicle(d.Plate, tx), ResolveDriver(d.DriverName, tx), ResolveMaterial(d.MaterialName, tx));
+        return new Refs(ResolvePartner(d.PartnerName, d.Partner, tx), ResolveVehicle(d.Plate, tx), ResolveDriver(d.DriverName, tx), ResolveMaterial(d.MaterialName, tx));
     }
 
     private long InsertWeighing(WeighingDraft d, Refs v, SqliteTransaction tx, Dictionary<string, object?> extra)
