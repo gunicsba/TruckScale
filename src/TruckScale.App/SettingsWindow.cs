@@ -43,6 +43,7 @@ public sealed class SettingsWindow : Window
     private readonly ComboBox _port = new() { MinWidth = 140 };
     private readonly ComboBox _baud = new() { ItemsSource = new[] { "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200" }, MinWidth = 140 };
     private readonly CheckBox _sim = new() { Content = L.T("set.sim") };
+    private readonly CheckBox _updateCheck = new() { Content = L.T("set.updateCheck") };
     private readonly ComboBox _language = new() { MinWidth = 140, ItemsSource = L.Languages.Select(l => l.Name).ToList() };
     private readonly ComboBox _printer;
 
@@ -66,6 +67,7 @@ public sealed class SettingsWindow : Window
         _port.SelectedItem = curPort;
         _baud.SelectedItem = s.GetValueOrDefault("serial.baud") ?? "9600";
         _sim.IsChecked = s.GetValueOrDefault("scale.simulator") == "1";
+        _updateCheck.IsChecked = s.GetValueOrDefault("update.check") != "0";
 
         var formBox = Field("ticket.form", s);
         var browse = new Button { Content = L.T("set.browse") };
@@ -109,21 +111,81 @@ public sealed class SettingsWindow : Window
             Row("", _sim),
             Row("", scaleTest),
             Hint(L.T("set.scaleHint"))));
-        form.Children.Add(Section(L.T("set.language"), Row(L.T("set.language"), _language)));
+        form.Children.Add(Section(L.T("set.program"), Row(L.T("set.language"), _language), Row("", _updateCheck),
+            Hint(L.F("main.version", Core.UpdateCheck.Current().ToString(3)))));
         var legacy = new Button { Content = L.T("set.legacyButton") };
         legacy.Click += async (_, _) =>
         {
             await new LegacyImportWindow(_state).ShowDialog(this);
             Reload();
         };
-        form.Children.Add(Section(L.T("set.legacy"), Row("", legacy)));
+        var saveFile = new Button { Content = L.T("set.file.save") };
+        var loadFile = new Button { Content = L.T("set.file.load") };
+        saveFile.Click += async (_, _) => await SaveToFile();
+        loadFile.Click += async (_, _) => await LoadFromFile();
+        form.Children.Add(Section(L.T("set.file"),
+            Row("", new WrapPanel { Children = { Spaced(saveFile), Spaced(loadFile), Spaced(legacy) } }),
+            Hint(L.T("set.file.hint"))));
 
         var save = new Button { Content = L.T("common.save"), MinWidth = 100, IsDefault = true };
         var cancel = new Button { Content = L.T("common.cancel"), MinWidth = 100, IsCancel = true };
         save.Click += (_, _) => Save();
         cancel.Click += (_, _) => Close();
-        form.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancel, save } });
-        Content = form;
+        // The buttons stay visible; the settings scroll if the screen is small.
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Margin = new Thickness(16, 8, 16, 12), Children = { cancel, save } };
+        form.Margin = new Thickness(16, 16, 16, 4);
+        var root = new DockPanel();
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        root.Children.Add(buttons);
+        root.Children.Add(new ScrollViewer { Content = form, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
+        Content = root;
+        WindowFit.ClampToScreen(this);
+    }
+
+    private static readonly FilePickerFileType SettingsType = new(L.T("set.file.type")) { Patterns = ["*.tssettings", "*.json"] };
+
+    private async Task SaveToFile()
+    {
+        // Values typed in this window count too.
+        foreach (var (key, box) in _fields)
+            _state.Db.SetSetting(key, string.IsNullOrWhiteSpace(box.Text) ? null : box.Text.Trim());
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = L.T("set.file.save"),
+            SuggestedFileName = $"truckscale-beallitasok-{DateTime.Now:yyyyMMdd}.tssettings",
+            DefaultExtension = "tssettings",
+            FileTypeChoices = [SettingsType],
+        });
+        if (file?.TryGetLocalPath() is not { } path) return;
+        try
+        {
+            await File.WriteAllTextAsync(path, Core.SettingsFile.Save(_state.Db), new System.Text.UTF8Encoding(false));
+            await Dialog.Info(this, L.T("set.file"), L.F("set.file.saved", path));
+        }
+        catch (IOException ex) { await Dialog.Info(this, L.T("set.file"), ex.Message); }
+    }
+
+    private async Task LoadFromFile()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = L.T("set.file.load"),
+            FileTypeFilter = [SettingsType, FilePickerFileTypes.All],
+        });
+        if (files.FirstOrDefault()?.TryGetLocalPath() is not { } path) return;
+        int n;
+        try { n = Core.SettingsFile.Load(_state.Db, await File.ReadAllTextAsync(path)); }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or FormatException or InvalidOperationException)
+        {
+            await Dialog.Info(this, L.T("set.file"), ex.Message);
+            return;
+        }
+        Reload();
+        _state.RestartScale();
+        TicketService.WarmUp(_state.Db.GetSetting("printer.name"));
+        var lang = _state.Db.GetSetting("ui.language");
+        _language.SelectedIndex = Math.Max(0, L.Languages.ToList().FindIndex(l => l.Code == lang));
+        await Dialog.Info(this, L.T("set.file"), L.F("set.file.loaded", n));
     }
 
     /// <summary>Shows the values in the database again (after taking over the old program's settings).</summary>
@@ -142,6 +204,8 @@ public sealed class SettingsWindow : Window
         _baud.SelectedItem = s.GetValueOrDefault("serial.baud") ?? "9600";
         _sim.IsChecked = s.GetValueOrDefault("scale.simulator") == "1";
     }
+
+    private static Control Spaced(Control c) { c.Margin = new Thickness(0, 0, 8, 4); return c; }
 
     private TextBox Field(string key, IReadOnlyDictionary<string, string?> s) => _fields[key] = new TextBox { Text = s.GetValueOrDefault(key) };
 
@@ -199,6 +263,7 @@ public sealed class SettingsWindow : Window
         if (_port.SelectedItem is string port) _state.Db.SetSetting("serial.port", port);
         if (_baud.SelectedItem is string baud) _state.Db.SetSetting("serial.baud", baud);
         _state.Db.SetSetting("scale.simulator", _sim.IsChecked == true ? "1" : "0");
+        _state.Db.SetSetting("update.check", _updateCheck.IsChecked == true ? "1" : "0");
         var lang = L.Languages[Math.Max(0, _language.SelectedIndex)];
         if (lang.Code != L.Current.Code)
         {

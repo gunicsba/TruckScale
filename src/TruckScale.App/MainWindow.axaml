@@ -4,7 +4,7 @@
         x:Class="TruckScale.App.MainWindow"
         Title="Truck Scale"
         Width="1200" Height="780" MinWidth="900" MinHeight="600"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen" WindowState="Maximized">
   <DockPanel>
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="{l:T main.menu.file}">
@@ -67,6 +67,15 @@
       </WrapPanel>
     </Border>
 
+    <!-- A newer release on GitHub (checked at startup) -->
+    <Border x:Name="UpdateBanner" DockPanel.Dock="Top" IsVisible="False" Background="#fff4d6" BorderBrush="#d4a017" BorderThickness="0,0,0,1" Padding="10,6">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="✕" Click="OnUpdateDismiss" Margin="6,0,0,0" ToolTip.Tip="{l:T upd.dismiss}" />
+        <Button DockPanel.Dock="Right" Content="{l:T upd.open}" Click="OnUpdateOpen" FontWeight="SemiBold" />
+        <TextBlock x:Name="UpdateText" VerticalAlignment="Center" FontSize="15" FontWeight="SemiBold" />
+      </DockPanel>
+    </Border>
+
     <!-- Status bar -->
     <Border DockPanel.Dock="Bottom" Background="#eee" BorderBrush="#ccc" BorderThickness="0,1,0,0" Padding="8,3">
       <TextBlock x:Name="StatusText" Classes="hint" />
@@ -83,9 +92,11 @@
     </Grid>
 
     <!-- Lists -->
-    <TabControl Margin="8,0,8,8">
-      <TabItem x:Name="YardTab" Header="">
-        <DataGrid x:Name="YardGrid" IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="Horizontal"
+    <!-- Lists, one under the other: trucks in the yard (at most ~3 at a time) on top, today's weighings below -->
+    <Grid Margin="8,0,8,8" RowDefinitions="Auto,Auto,Auto,*">
+        <TextBlock x:Name="YardTitle" FontSize="16" FontWeight="Bold" Margin="2,0,0,4" />
+        <DataGrid Grid.Row="1" x:Name="YardGrid" IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="Horizontal"
+                  RowHeight="34" FontSize="15" Height="150" BorderBrush="#2f6fd6" BorderThickness="1"
                   CanUserResizeColumns="True" DoubleTapped="OnYardDoubleTapped" KeyDown="OnYardKeyDown">
           <DataGrid.Columns>
             <DataGridTextColumn Header="{l:T f.direction}" Binding="{Binding DirectionText}" />
@@ -98,9 +109,8 @@
             <DataGridTextColumn Header="{l:T f.arrived}" Binding="{Binding FirstAtText}" />
           </DataGrid.Columns>
         </DataGrid>
-      </TabItem>
-      <TabItem x:Name="TodayTab" Header="">
-        <DataGrid x:Name="TodayGrid" IsReadOnly="True" CanUserSortColumns="True" SelectionMode="Single" GridLinesVisibility="Horizontal" CanUserResizeColumns="True"
+        <TextBlock Grid.Row="2" x:Name="TodayTitle" FontSize="16" FontWeight="Bold" Margin="2,12,0,4" />
+        <DataGrid Grid.Row="3" x:Name="TodayGrid" IsReadOnly="True" CanUserSortColumns="True" SelectionMode="Single" GridLinesVisibility="Horizontal" CanUserResizeColumns="True"
                   DoubleTapped="OnTodayDoubleTapped" ToolTip.Tip="{l:T main.tip.today}">
           <DataGrid.Columns>
             <DataGridTextColumn Header="{l:T f.ticket}" Binding="{Binding TicketNo}" />
@@ -115,7 +125,6 @@
             <DataGridTextColumn Header="{l:T f.closed}" Binding="{Binding ClosedTimeText}" />
           </DataGrid.Columns>
         </DataGrid>
-      </TabItem>
-    </TabControl>
+    </Grid>
   </DockPanel>
 </Window>

@@ -36,14 +36,23 @@ public static class LegacyImport
     public static string CopyForm(string source, string folder)
     {
         var name = Path.GetFileName(source);
+        if (Path.GetFullPath(Path.Combine(folder, name)).Equals(Path.GetFullPath(source), StringComparison.OrdinalIgnoreCase)) return name;
+        return StoreForm(File.ReadAllBytes(source), name, folder);
+    }
+
+    /// <summary>Writes a ticket form into a folder (see <see cref="CopyForm"/>) and returns the file name used.</summary>
+    public static string StoreForm(byte[] content, string name, string folder)
+    {
+        name = Path.GetFileName(name);
         var target = Path.Combine(folder, name);
-        if (Path.GetFullPath(target).Equals(Path.GetFullPath(source), StringComparison.OrdinalIgnoreCase)) return name;
-        if (File.Exists(target) && !File.ReadAllBytes(target).AsSpan().SequenceEqual(File.ReadAllBytes(source)))
+        if (File.Exists(target))
         {
+            if (File.ReadAllBytes(target).AsSpan().SequenceEqual(content)) return name;
             name = $"{Path.GetFileNameWithoutExtension(name)}-{DateTime.Now:yyyyMMdd-HHmmss}{Path.GetExtension(name)}";
             target = Path.Combine(folder, name);
         }
-        File.Copy(source, target, overwrite: true);
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(target, content);
         return name;
     }
 

@@ -38,8 +38,10 @@ A programot a `TruckScale.exe` indítja, telepíteni nem kell.
   - **STABIL:** a súly nyugalomban van, lehet mérni.
   - **MOZGÁS:** a súly még változik, várni kell.
   - **NINCS KAPCSOLAT:** a program nem kap adatot a mérlegtől.
-- **Lent** két lista:
-  - **Udvaron:** a bent lévő járművek, akiknek még nincs meg a második mérésük.
+- A program **teljes képernyőn** indul.
+- **Új verzió:** induláskor a program megnézi a GitHubon, van-e újabb kiadás. Ha van, felül sárga sáv jelenik meg, a **Letöltés oldal megnyitása** gomb a letöltési oldalra visz. Internet nélkül nem történik semmi. A keresés a Beállításban (Program rész) kikapcsolható. A frissítés: a régi programmappát le kell cserélni az új zip tartalmára. Az adatok (`truckscale.db`) máshol vannak, azok megmaradnak.
+- **Lent** két lista egymás alatt:
+  - **Udvaron** (felül, kék keretben): a bent lévő járművek, akiknek még nincs meg a második mérésük. Három jármű fér el benne görgetés nélkül.
   - **Mai mérések:** a ma lezárt jegyek. Dupla kattintással megnyílik a mérlegjegy, és újranyomtatható.
 - **A legalsó sor** mutatja, melyik adatfájllal és melyik mérleggel (soros port vagy szimulátor) dolgozik a program.
 
@@ -74,6 +76,8 @@ Amikor a jármű távozik, a főablak **Udvaron** listájában **dupla kattintá
 
 ![Jármű távozása](images/departure.png)
 
+A kijelző alatt zölddel látszik a **Nettó**, amit a Mérés most adna: az első és a mostani súly különbsége. A mérleg mozgása közben halványan látszik, és már a Mérés megnyomása előtt ellenőrizhető.
+
 Itt már csak a **Megjegyzés** módosítható (lezáráskor elmentődik), minden más rögzített:
 
 - **Mérés + nyomtatás** (és az **Enter** is): lemér, lezárja a jegyet, kinyomtatja a mérlegjegyet, és bezárja az ablakot. A nyomtatás ideje alatt a jegyszám és a nettó súly látszik.
@@ -94,7 +98,11 @@ Ha a jármű üres súlya már ismert (Tárolt tára), elég **egyszer**, rakott
 1. Pipáld be a **Használ** jelölőt.
 2. Nyomd meg a **Mérés + nyomtatás** gombot (vagy az Entert).
 
-A program a mért súlyból levonja a tárolt tárát, lezárja és kinyomtatja a jegyet. A jármű nem kerül az udvarra.
+A **Nettó** (mért súly − tárolt tára) a Mérés előtt is látszik a kijelző alatt. A program a mért súlyból levonja a tárolt tárát, lezárja és kinyomtatja a jegyet. A jármű nem kerül az udvarra.
+
+## Mérés 0 kg-hoz (pl. zsákos áru)
+
+A mérés **üres mérlegnél (0 kg)** is lehetséges, például ha zsákos árut mérünk, és a zsák súlya elhanyagolható. Az első mérés 0 kg, a második a rakott súly, a nettó így maga az áru. A program 0 kg-nál rákérdez, biztosan ehhez mér-e. Negatív súllyal nem lehet mérni.
 
 ## Stornó
 
@@ -128,6 +136,12 @@ Mennyi termény jött be vagy ment ki egy időszakban, és kitől.
    - **Ügyfelenként és anyagonként:** ügyfelenként, azon belül milyen termény.
 4. Lent a teljes összeg: mérések száma, bruttó, tára, nettó.
 
+**CSV export ▾:** az adatok Excelben megnyitható fájlba menthetők:
+- **Összesítő táblázat:** a képernyőn látható csoportosítás és részösszegek,
+- **Tételes (minden mérés):** a szűrésnek megfelelő összes mérés soronként (jegyszám, dátumok, rendszám, ügyfél, sofőr, anyag, megjelölés, megjegyzés, bruttó, tára, nettó).
+
+A fájl pontosvesszővel tagolt, a súlyok egész számok, így Excelben összeadhatók.
+
 Az **Előnézet** a nyomtatandó oldalakat mutatja, a **Nyomtatás** kinyomtatja őket. A **Tételes lista is** jelölővel az összesítő után az összes mérlegjegy is felkerül a listára.
 
 ![Összesítő nyomtatási képe](images/summary-preview.png)
@@ -154,6 +168,14 @@ Az **Előnézet** a nyomtatandó oldalakat mutatja, a **Nyomtatás** kinyomtatja
   A minták a cégnevet és -címet, valamint a megjegyzést (pl. hrsz) a Beállításból veszik, így bármelyik gazdaság használhatja őket.
 - **Cég:** a jegy fejlécében szereplő adatok. A **Megjegyzés** (pl. „… 0123/4 Hrsz”) az Átadó és Átvevő aláírás között jelenik meg.
 - **Mérleg:** soros port és sebesség (a mérleg 9600 baudon küld), valamint a **Szimulátor** mérleg nélküli próbához. A szimulátor be- és kikapcsolása a program újraindítása után lép életbe.
+
+### Mentés, visszatöltés, átvétel
+
+A **Beállítás** ablak alján:
+- **Mentés fájlba…:** minden beállítás egy `.tssettings` fájlba kerül: nyomtató, cégadatok, mérleg port és formátum, nyelv, valamint a mérlegjegy minta is.
+- **Betöltés fájlból…:** egy korábban mentett fájlból visszatölti őket, például új gépen vagy újratelepítés után. A mérlegjegy mintát a program az adatbázis mellé írja vissza.
+
+A fájlban csak beállítások vannak, mérések nincsenek. Az adatokat a `truckscale.db` másolásával lehet menteni (lásd [Adatok és mentés](#adatok-és-mentés)).
 
 ### Mérleg teszt / nyers adat
 
@@ -201,7 +223,7 @@ A régi `DATA.LIS` fájlhoz az átvétel nem nyúl, egy ideiglenes másolatból 
 **A Mérés gomb szürke.** A gomb melletti piros szöveg megmondja, miért, például:
 - „A mérleg nem stabil”,
 - „Válassza ki az ügyfelet”,
-- „A mérleg üres”.
+- „A mérleg negatív súlyt mutat”.
 
 **Kicsinyítve (pl. 60%-on) nyomtat.** A program mindig A4-es lapot kér. Ha a nyomtató ennek ellenére kicsinyít, a Beállításban válaszd a nyomtató **saját illesztőprogramos** bejegyzését (pl. „NPI04DBCD (HP LaserJet …)”) a Windows általános bejegyzése helyett. Az általános bejegyzés a „Microsoft IPP Class Driver”, ez lapra igazítással kicsinyíthet.
 

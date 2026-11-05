@@ -24,6 +24,10 @@ C# / .NET 10 · [Avalonia](https://avaloniaui.net/) UI · SQLite · Windows, Lin
 - **Scale:** serial indicator. Lines are read like the old program (stable marker and weight at fixed positions; preset **BWS** = `ST,GL,   12340kg`) or recognised automatically. A **raw data window** shows exactly what the indicator sends, with a position ruler, live result, test line and **automatic baud rate detection**. Built-in simulator for testing without a scale.
 - **Languages:** Hungarian and English (menu *Nyelv / Language*); numbers and dates follow the language. Adding a language means adding one dictionary to `src/TruckScale.Core/Localization/Strings.cs`; a unit test checks that every key is translated.
 - **Migration:** imports the old `DATA.LIS` (Access/Jet) database. It merges duplicate plates, drivers and customers and checks the totals against the old data.
+- **Weighing:** the net weight is shown live before Mérés (2nd weighing or stored tare); weighing against 0 kg is allowed (bagged goods), after a confirmation.
+- **Export:** CSV from Áttekintés (the summary table or every weighing), opens directly in Excel.
+- **Update check:** at startup the program looks up the latest GitHub release and shows a bar if a newer one exists (can be switched off in Settings; silent when offline).
+- **Settings file:** all settings, including the ticket form, can be saved to a file and loaded on another computer.
 
 | | |
 |---|---|

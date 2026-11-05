@@ -250,6 +250,7 @@ public partial class WeighingWindow : Window
     private void UpdateHint()
     {
         var problem = Problem();
+        UpdateNetPreview();
         if (_done is not null)
         {
             WeighButton.IsEnabled = false;
@@ -268,6 +269,23 @@ public partial class WeighingWindow : Window
         WeighButton.IsDefault = !ClosesTicket;
     }
 
+    /// <summary>
+    /// The net weight that Mérés would give now: 2nd weighing = difference to the 1st weight,
+    /// "Használ" = reading minus the stored tare. Not shown at a plain 1st weighing or after closing.
+    /// </summary>
+    private void UpdateNetPreview()
+    {
+        int? net = null;
+        if (_done is null && _state.Reading is { } r && r.Status != ScaleStatus.Overload)
+        {
+            if (_open is not null) net = Math.Abs(r.Weight - (_open.FirstWeight ?? 0));
+            else if (UseStoredTare.IsChecked == true && CurrentVehicle?.LastTare is int t) net = r.Weight - t;
+        }
+        NetPreview.IsVisible = net is not null;
+        NetPreview.Text = net is null ? "" : L.F("w.netPreview", AppState.Kg(net));
+        NetPreview.Opacity = _state.Reading?.IsStable == true ? 1 : 0.5;   // not stable yet: greyed
+    }
+
     private string? Problem()
     {
         if (_done is not null) return "";
@@ -275,7 +293,7 @@ public partial class WeighingWindow : Window
         if (r is null) return L.T("w.p.noConnection");
         if (r.Status == ScaleStatus.Overload) return L.T("w.p.overload");
         if (!r.IsStable) return L.T("w.p.unstable");
-        if (r.Weight <= 0) return L.T("w.p.empty");
+        if (r.Weight < 0) return L.T("w.p.negative");   // 0 kg is allowed (e.g. bagged goods), with a question
         if (_open is not null) return null;
         if (string.IsNullOrWhiteSpace(PartnerBox.Text)) return L.T("w.p.choosePartner");
         if (CurrentPartner is null) return L.T("w.p.unknownPartner");
@@ -303,6 +321,8 @@ public partial class WeighingWindow : Window
         UpdateHint();
         try
         {
+            if (weight == 0 && !await Dialog.Confirm(this, L.T("w.weigh"), L.T("w.zero")))
+                return null;
             if (_open is not null)
             {
                 if (Math.Abs(weight - (_open.FirstWeight ?? 0)) < 200 &&

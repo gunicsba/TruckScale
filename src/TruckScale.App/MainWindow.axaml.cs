@@ -2,6 +2,7 @@ using TruckScale.Core.Localization;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using TruckScale.Core;
 using TruckScale.Core.Data;
 
 namespace TruckScale.App;
@@ -41,6 +42,7 @@ public partial class MainWindow : Window
         StatusText.Text = L.F("main.status", state.Db.Path, state.Scale.Description) +
                           (state.ScaleNote is null ? "" : $"  ({state.ScaleNote})");
         Refresh();
+        if (state.Db.GetSetting("update.check") != "0") _ = CheckForUpdate();
         if (state.ImportBackup is { } backup)
             Opened += async (_, _) => await Dialog.Info(this, L.T("imp.title"),
                 L.F("imp.imported", state.Db.WeighingCount()) + "\n\n" + L.F("imp.backup", backup));
@@ -50,11 +52,11 @@ public partial class MainWindow : Window
     {
         var open = _state.Db.OpenWeighings();
         YardGrid.ItemsSource = open;
-        YardTab.Header = L.F("main.yard", open.Count);
+        YardTitle.Text = L.F("main.yard", open.Count);
         var today = DateTime.Today;
         var done = _state.Db.ClosedWeighings(today, today.AddDays(1));
         TodayGrid.ItemsSource = done;
-        TodayTab.Header = L.F("main.today", done.Count(w => w.Status == WeighingStatus.Done));
+        TodayTitle.Text = L.F("main.today", done.Count(w => w.Status == WeighingStatus.Done));
     }
 
     private async Task OpenWeighing(WeighingWindow win)
@@ -103,7 +105,28 @@ public partial class MainWindow : Window
     private void OnExit(object? sender, RoutedEventArgs e) => Close();
 
     private async void OnAbout(object? sender, RoutedEventArgs e) =>
-        await Dialog.Info(this, L.T("main.menu.about").Replace("_", ""), L.T("main.about") + "\nhttps://github.com/gunicsba/TruckScale");
+        await Dialog.Info(this, L.T("main.menu.about").Replace("_", ""),
+            L.T("main.about") + "\n" + L.F("main.version", UpdateCheck.Current().ToString(3)) + "\nhttps://github.com/gunicsba/TruckScale");
+
+    private string _updateUrl = UpdateCheck.ReleasesUrl;
+
+    /// <summary>Startup: is there a newer release on GitHub? Shows a yellow bar if so; silent when offline.</summary>
+    private async Task CheckForUpdate()
+    {
+        var current = UpdateCheck.Current();
+        if (await UpdateCheck.NewerAsync(current) is not { } r) return;
+        _updateUrl = r.Url;
+        UpdateText.Text = L.F("upd.available", r.Version.ToString(3), current.ToString(3));
+        UpdateBanner.IsVisible = true;
+    }
+
+    private void OnUpdateOpen(object? sender, RoutedEventArgs e)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_updateUrl) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { _ = Dialog.Info(this, L.T("upd.open"), _updateUrl); }
+    }
+
+    private void OnUpdateDismiss(object? sender, RoutedEventArgs e) => UpdateBanner.IsVisible = false;
 
     /// <summary>Nyelv / Language menu: one item per language; choosing one saves it and offers a restart.</summary>
     private void BuildLanguageMenu()

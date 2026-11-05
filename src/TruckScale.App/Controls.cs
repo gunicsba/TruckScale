@@ -111,12 +111,15 @@ public static class WindowFit
             if (screen is null) return;
             double scale = screen.Scaling;
             // Width/Height are the client area; the frame (title bar, borders) comes on top of it.
-            var frame = w.FrameSize ?? new Size(w.Width + 16, w.Height + 40);
-            double extraW = Math.Max(0, frame.Width - w.Width), extraH = Math.Max(0, frame.Height - w.Height);
+            // ClientSize also works for windows sized to their content (Width/Height may be NaN there).
+            var client = w.ClientSize;
+            var frame = w.FrameSize ?? new Size(client.Width + 16, client.Height + 40);
+            double extraW = Math.Max(0, frame.Width - client.Width), extraH = Math.Max(0, frame.Height - client.Height);
             double maxW = screen.WorkingArea.Width / scale - extraW - 8, maxH = screen.WorkingArea.Height / scale - extraH - 8;
-            if (w.Width <= maxW && w.Height <= maxH) return;
-            w.Width = Math.Min(w.Width, maxW);
-            w.Height = Math.Min(w.Height, maxH);
+            if (client.Width <= maxW && client.Height <= maxH) return;
+            w.SizeToContent = SizeToContent.Manual;
+            w.Width = Math.Min(client.Width, maxW);
+            w.Height = Math.Min(client.Height, maxH);
             w.Position = new PixelPoint(
                 screen.WorkingArea.X + (int)((screen.WorkingArea.Width - (w.Width + extraW) * scale) / 2),
                 screen.WorkingArea.Y + (int)((screen.WorkingArea.Height - (w.Height + extraH) * scale) / 2));

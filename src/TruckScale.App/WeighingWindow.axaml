@@ -73,6 +73,8 @@
       </StackPanel>
       <TextBlock x:Name="WeightTitle" Text="{l:T w.totalWeight}" FontWeight="SemiBold" HorizontalAlignment="Center" />
       <Border x:Name="WeightHost" Height="110" />
+      <!-- Net weight before Mérés (2nd weighing or stored tare), from the live reading -->
+      <TextBlock x:Name="NetPreview" FontSize="26" FontWeight="Bold" Foreground="#1d6b33" HorizontalAlignment="Center" IsVisible="False" />
       <TextBlock x:Name="HintText" Classes="hint" TextWrapping="Wrap" Foreground="#a33" MinHeight="34" />
       <Border x:Name="ResultPanel" IsVisible="False" Background="#eaf6ec" BorderBrush="#2a9d4b" BorderThickness="1" CornerRadius="4" Padding="12,8">
         <TextBlock x:Name="ResultText" FontSize="17" FontFamily="Consolas, DejaVu Sans Mono, Menlo, monospace" />

@@ -7,6 +7,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using TruckScale.Core;
 using TruckScale.Core.Data;
 using TruckScale.Core.Text;
@@ -267,8 +268,17 @@ public sealed class SummaryWindow : Window
         var preview = new Button { Content = L.T("common.preview"), MinWidth = 100 };
         preview.Click += async (_, _) => await ShowPreview();
         close.Click += (_, _) => Close();
+        var csvSummary = new MenuItem { Header = L.T("sum.csvSummary") };
+        var csvItems = new MenuItem { Header = L.T("sum.csvItems") };
+        csvSummary.Click += async (_, _) =>
+        {
+            var (h1, h2) = Headers();
+            await ExportCsv("osszesito", Csv.Summary(Summary.Build(_rows, Grouping), h1, h2));
+        };
+        csvItems.Click += async (_, _) => await ExportCsv("meresek", Csv.Weighings(_rows));
+        var csv = new Button { Content = L.T("sum.csv") + " ▾", MinWidth = 110, Flyout = new MenuFlyout { Items = { csvSummary, csvItems } } };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right,
-            Children = { new TextBlock { Text = L.T("common.printer"), VerticalAlignment = VerticalAlignment.Center }, Printers.Chooser(state), _itemized, close, preview, print } };
+            Children = { new TextBlock { Text = L.T("common.printer"), VerticalAlignment = VerticalAlignment.Center }, Printers.Chooser(state), _itemized, csv, close, preview, print } };
         var bottom = new StackPanel { Spacing = 8, Margin = new Thickness(0, 8, 0, 0), Children = { _total, buttons } };
 
         var root = new DockPanel { Margin = new Thickness(12) };
@@ -280,6 +290,26 @@ public sealed class SummaryWindow : Window
         root.Children.Add(_grid);
         Content = root;
         Recalc();
+    }
+
+    /// <summary>Saves a CSV file (the period goes into the suggested file name).</summary>
+    private async Task ExportCsv(string baseName, string content)
+    {
+        var f = CurrentFilter();
+        var file = await StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = L.T("sum.csv"),
+            SuggestedFileName = $"{baseName}_{f.From:yyyyMMdd}-{f.To:yyyyMMdd}.csv",
+            DefaultExtension = "csv",
+            FileTypeChoices = [new Avalonia.Platform.Storage.FilePickerFileType(L.T("csv.type")) { Patterns = ["*.csv"] }],
+        });
+        if (file?.TryGetLocalPath() is not { } path) return;
+        try
+        {
+            await File.WriteAllTextAsync(path, content, Csv.Encoding);
+            await Dialog.Info(this, L.T("sum.csv"), L.F("sum.csvSaved", path));
+        }
+        catch (IOException ex) { await Dialog.Info(this, L.T("sum.csv"), ex.Message); }
     }
 
     private SummaryFilter CurrentFilter() => new(
