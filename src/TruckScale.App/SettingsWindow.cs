@@ -110,6 +110,13 @@ public sealed class SettingsWindow : Window
             Row("", scaleTest),
             Hint(L.T("set.scaleHint"))));
         form.Children.Add(Section(L.T("set.language"), Row(L.T("set.language"), _language)));
+        var legacy = new Button { Content = L.T("set.legacyButton") };
+        legacy.Click += async (_, _) =>
+        {
+            await new LegacyImportWindow(_state).ShowDialog(this);
+            Reload();
+        };
+        form.Children.Add(Section(L.T("set.legacy"), Row("", legacy)));
 
         var save = new Button { Content = L.T("common.save"), MinWidth = 100, IsDefault = true };
         var cancel = new Button { Content = L.T("common.cancel"), MinWidth = 100, IsCancel = true };
@@ -117,6 +124,23 @@ public sealed class SettingsWindow : Window
         cancel.Click += (_, _) => Close();
         form.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancel, save } });
         Content = form;
+    }
+
+    /// <summary>Shows the values in the database again (after taking over the old program's settings).</summary>
+    private void Reload()
+    {
+        var s = _state.Db.AllSettings();
+        foreach (var (key, box) in _fields) box.Text = s.GetValueOrDefault(key);
+        static void Select(ComboBox c, string? value)
+        {
+            if (value is null) return;
+            if (c.ItemsSource is List<string> list && !list.Contains(value)) { list.Insert(0, value); c.ItemsSource = null; c.ItemsSource = list; }
+            c.SelectedItem = value;
+        }
+        Select(_port, s.GetValueOrDefault("serial.port"));
+        Select(_printer, s.GetValueOrDefault("printer.name"));
+        _baud.SelectedItem = s.GetValueOrDefault("serial.baud") ?? "9600";
+        _sim.IsChecked = s.GetValueOrDefault("scale.simulator") == "1";
     }
 
     private TextBox Field(string key, IReadOnlyDictionary<string, string?> s) => _fields[key] = new TextBox { Text = s.GetValueOrDefault(key) };

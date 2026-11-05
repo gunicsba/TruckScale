@@ -40,6 +40,9 @@ public sealed class AppState : IDisposable
     public SimulatedScale? Simulator => Scale as SimulatedScale;
     public string? ScaleNote { get; init; }
 
+    /// <summary>Set when this start replaced the database with an import from the old program: the backup of the previous one.</summary>
+    public string? ImportBackup { get; init; }
+
     /// <summary>Latest reading (null = no connection). Only read/written on the UI thread.</summary>
     public ScaleReading? Reading { get; private set; }
 
@@ -51,6 +54,7 @@ public sealed class AppState : IDisposable
         string? Arg(string name) { var i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
         var dbPath = Arg("--db") ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TruckScale", "truckscale.db");
+        var backup = Core.Legacy.LegacyImport.ApplyPending(dbPath);   // an import from the old program waiting to take over
         var db = TruckScaleDb.OpenOrCreate(dbPath);
 
         // Language (setting "ui.language", or --lang en); numbers and dates follow it.
@@ -76,7 +80,7 @@ public sealed class AppState : IDisposable
             note = serial.Port.Length > 0 ? L.F("scale.portMissing", serial.Port) : L.T("scale.noPort");
         }
 
-        var state = new AppState { Db = db, Scale = scale, ScaleNote = note, Args = args };
+        var state = new AppState { Db = db, Scale = scale, ScaleNote = note, Args = args, ImportBackup = string.IsNullOrEmpty(backup) ? null : backup };
         state.Attach(scale);
         TicketService.WarmUp(db.GetSetting("printer.name"));
         return state;

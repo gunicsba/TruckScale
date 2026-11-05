@@ -7,6 +7,7 @@ using System.Data.OleDb;
 using System.Text;
 using Microsoft.Data.Sqlite;
 using TruckScale.Core.Data;
+using TruckScale.Core.Legacy;
 using TruckScale.Core.Text;
 
 Console.OutputEncoding = Encoding.UTF8;
@@ -306,24 +307,8 @@ if (own is not null)
 }
 if (iniPath is not null)
 {
-    var ini = ReadIni(iniPath);
-    string? I(string sec, string key) => Normalize.CleanOrNull(ini.GetValueOrDefault($"{sec}.{key}"));
-    settings["company.name"] ??= I("USER", "NAME");
-    settings["company.reg_no"] = I("USER", "ICO");
-    settings["company.tax_no"] = I("USER", "DIC");
-    settings["company.note"] = I("USER", "NOTE");
-    settings["serial.port"] = I("COM", "PORT") is string port ? (OperatingSystem.IsWindows() ? "COM" + port : port) : null;
-    settings["serial.baud"] = I("COM", "BAUD");
-    settings["serial.parity"] = I("COM", "PARITY");
-    settings["serial.data_bits"] = I("COM", "D_BITS");
-    settings["serial.stop_bits"] = I("COM", "S_BITS");
-    settings["scale.max"] = I("S120", "MAX");
-    settings["scale.min"] = I("S120", "MIN");
-    settings["scale.division"] = I("S120", "DIV");
-    settings["printer.name"] = I("PRINTER", "NAME");
-    settings["printer.font_name"] = I("PRINTER", "FONT_NAME");
-    settings["printer.font_size"] = I("PRINTER", "FONT_SIZE");
-    settings["ticket.form"] = I("TICKET", "NAME");
+    foreach (var (k, val) in LegacyIni.ToSettings(LegacyIni.Read(iniPath), iniPath, OperatingSystem.IsWindows()))
+        if (!LegacyIni.FillOnly.Contains(k) || settings.GetValueOrDefault(k) is null) settings[k] = val;
 }
 foreach (var (k, val) in settings.Where(kv => kv.Value is not null))
     Insert(db, tx, "settings", new() { ["key"] = k, ["value"] = val });
@@ -400,19 +385,6 @@ static long Insert(SqliteConnection db, SqliteTransaction tx, string table, Dict
     cmd.CommandText = $"INSERT INTO {table} ({string.Join(",", values.Keys)}) VALUES ({string.Join(",", values.Keys.Select(k => "$" + k))}); SELECT last_insert_rowid();";
     foreach (var (k, v) in values) cmd.Parameters.AddWithValue("$" + k, v ?? DBNull.Value);
     return (long)cmd.ExecuteScalar()!;
-}
-
-static Dictionary<string, string> ReadIni(string path)
-{
-    var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    string section = "";
-    foreach (var raw in File.ReadAllLines(path, Encoding.GetEncoding(1250)))
-    {
-        var line = raw.Trim();
-        if (line.StartsWith('[') && line.EndsWith(']')) section = line[1..^1];
-        else if (line.IndexOf('=') is int eq and > 0) d[$"{section}.{line[..eq].Trim()}"] = line[(eq + 1)..];
-    }
-    return d;
 }
 
 static long? MapId(Dictionary<int, long> map, Row? r) =>

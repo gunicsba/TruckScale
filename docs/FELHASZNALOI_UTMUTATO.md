@@ -171,11 +171,25 @@ A **Beállítás → Mérleg teszt / nyers adat…** gombbal lehet a mérlegműs
 
 Amíg ebben az ablakban kapcsolódsz, a program saját mérlegkapcsolata szünetel. Ha a portot másik program (pl. a régi TS.exe) használja, a hibaüzenet alul jelenik meg.
 
+## Átvétel a régi programból
+
+Az új gépen elég egyszer elvégezni: **Beállítás → Átvétel a régi programból (TS.ini, DATA.LIS)…**
+
+1. A program magától megkeresi a régi Truck Scale fájljait: a `Program Files` alatt, a Windows *VirtualStore* mappájában, a Dokumentumokban és az Asztalon. A régi program a Windows miatt sokszor nem a saját mappájába írt, hanem a `%LOCALAPPDATA%\VirtualStore\…` alá. Az új program ezért azt a fájlt választja ki, amelyiket a régi ténylegesen használta. A listában ott van mellette a dátum és a méret is.
+2. Ha nem a jó fájl van kiválasztva, válassz másikat a listából, használd a **Tallózás…** gombot, vagy a **Keresés mappában…** gombbal adj meg egy mappát (pl. egy pendrive-ot a régi gép fájljaival).
+3. Jelöld be, mit veszel át:
+   - **Beállítások (TS.ini):** cégadatok és HRSZ, kezelő, mérleg port, sebesség és formátum (BWS), nyomtató, mérlegjegy minta. A mintát a program az adatbázis mellé másolja.
+   - **Adatok (DATA.LIS):** ügyfelek, járművek, sofőrök, anyagok és minden mérés. A duplikált rendszámokat és neveket a program összevonja. A végén ellenőrzi, hogy a régi és az új összesítők évenként egyeznek-e.
+4. **Átvétel.** A napló ablakban látszik minden lépés. Az adatok átvétele **lecseréli a jelenlegi adatbázist** (előtte mentés készül), majd a program újraindul.
+
+A régi `DATA.LIS` fájlhoz az átvétel nem nyúl, egy ideiglenes másolatból dolgozik. Az adatok átvétele csak Windowson lehetséges. A beállítások bármelyik gépen átvehetők. Részletek: [DATABASE.md](DATABASE.md).
+
 ## Adatok és mentés
 
 - Minden adat a `truckscale.db` fájlban van. **Rendszeresen másold el** pendrive-ra vagy felhőbe, például hetente és a betakarítás végén. Ha bezárt programmal másolod, biztosan ép lesz a mentés.
 - Visszaállítás: a mentett fájlt kell a helyére másolni.
-- **A régi program (TS.exe) adatai:** a `TruckScale.Import` eszköz egyszer átmásolja őket (ügyfelek, rendszámok, sofőrök, anyagok, minden mérés). Az eszköz a régi `DATA.LIS` fájlhoz nem nyúl. Részletek: [DATABASE.md](DATABASE.md).
+- **A régi program (TS.exe) adatai:** lásd lent, *Átvétel a régi programból*.
+- Minden átvétel előtt a program biztonsági mentést készít a jelenlegi adatbázisról (`truckscale-backup-<dátum>.db`), ugyanabba a mappába.
 
 ## Gyakori kérdések
 

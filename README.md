@@ -41,7 +41,6 @@ Get the latest package from **[Releases](../../releases)** and unzip it; nothing
 | Windows | `TruckScale-<version>-win-x64.zip` → `TruckScale.exe` |
 | Linux | `TruckScale-<version>-linux-x64.tar.gz` → `./TruckScale` |
 | macOS | `TruckScale-<version>-osx-arm64.tar.gz` (Apple Silicon) / `osx-x64` (Intel) |
-| Old data import (Windows) | `TruckScale.Import-<version>-win-x86.zip` |
 
 Ticket printing currently works on Windows; the previews work everywhere.
 
@@ -55,6 +54,10 @@ TruckScale.exe [--db path\to\truckscale.db] [--sim] [--lang en]
 - `--sim` uses the simulator instead of the serial port. The simulator is also used automatically when the configured port does not exist.
 
 ## Migrating the old data (Windows)
+
+In the program: **Beállítás → Átvétel a régi programból (TS.ini, DATA.LIS)…** It finds the old program's `TS.ini` and `DATA.LIS` by itself, also in the Windows *VirtualStore* folder, where the old program really wrote when it ran from Program Files. Then it takes over the settings (company, scale port and format, printer, ticket form) and/or all data. The current database is backed up first, and the program restarts with the imported data.
+
+The conversion is done by the bundled 32-bit `import\TruckScale.Import.exe` (the Jet driver exists only as 32-bit). It can also be run by hand:
 
 ```
 TruckScale.Import.exe "<path>\DATA.LIS" truckscale.db --ini TS.ini

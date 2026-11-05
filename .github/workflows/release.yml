@@ -42,8 +42,8 @@ jobs:
         run: dotnet test TruckScale.slnx -c Release
       - name: Publish program (win-x64)
         run: dotnet publish src/TruckScale.App -c Release -r win-x64 --self-contained true -p:Version=${{ needs.version.outputs.version }} -o out/TruckScale
-      - name: Publish importer for the old DATA.LIS (win-x86)
-        run: dotnet publish tools/TruckScale.Import -c Release -r win-x86 --self-contained true -p:Version=${{ needs.version.outputs.version }} -o out/TruckScale.Import
+      - name: Publish importer for the old DATA.LIS (win-x86, bundled in import)
+        run: dotnet publish tools/TruckScale.Import -c Release -r win-x86 --self-contained true -p:Version=${{ needs.version.outputs.version }} -o out/TruckScale/import
       - name: Package
         shell: pwsh
         run: |
@@ -51,7 +51,6 @@ jobs:
           Copy-Item README.md out/TruckScale/
           Copy-Item docs/FELHASZNALOI_UTMUTATO.md out/TruckScale/
           Compress-Archive -Path out/TruckScale/* -DestinationPath "TruckScale-$v-win-x64.zip"
-          Compress-Archive -Path out/TruckScale.Import/* -DestinationPath "TruckScale.Import-$v-win-x86.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -101,7 +100,8 @@ jobs:
             | **Windows** (ajánlott) | `TruckScale-${{ needs.version.outputs.version }}-win-x64.zip` |
             | Linux | `TruckScale-${{ needs.version.outputs.version }}-linux-x64.tar.gz` |
             | macOS (Apple Silicon / Intel) | `…-osx-arm64.tar.gz` / `…-osx-x64.tar.gz` |
-            | Régi DATA.LIS átvétele (Windows) | `TruckScale.Import-${{ needs.version.outputs.version }}-win-x86.zip` |
+
+            A régi program (TS.exe) beállításai és adatai: **Beállítás → Átvétel a régi programból** (Windows).
 
             Kicsomagolás után a `TruckScale.exe` (Linux/macOS: `TruckScale`) indítja a programot; telepíteni nem kell.
             Útmutató: [docs/FELHASZNALOI_UTMUTATO.md](https://github.com/${{ github.repository }}/blob/main/docs/FELHASZNALOI_UTMUTATO.md)

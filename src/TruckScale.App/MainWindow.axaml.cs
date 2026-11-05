@@ -41,6 +41,9 @@ public partial class MainWindow : Window
         StatusText.Text = L.F("main.status", state.Db.Path, state.Scale.Description) +
                           (state.ScaleNote is null ? "" : $"  ({state.ScaleNote})");
         Refresh();
+        if (state.ImportBackup is { } backup)
+            Opened += async (_, _) => await Dialog.Info(this, L.T("imp.title"),
+                L.F("imp.imported", state.Db.WeighingCount()) + "\n\n" + L.F("imp.backup", backup));
     }
 
     private void Refresh()

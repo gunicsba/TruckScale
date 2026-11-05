@@ -206,6 +206,8 @@ public sealed class TruckScaleDb : IDisposable
     public Weighing GetWeighing(long id) =>
         Query($"SELECT {WeighingCols} FROM weighings WHERE id = $id", ReadWeighing, ("$id", id)).Single();
 
+    public long WeighingCount() => Convert.ToInt64(Scalar("SELECT COUNT(*) FROM weighings"));
+
     /// <summary>Trucks in the yard: weighings with only the first weight.</summary>
     public List<Weighing> OpenWeighings() =>
         Query($"SELECT {WeighingCols} FROM weighings WHERE status = 'OPEN' ORDER BY first_at", ReadWeighing);
