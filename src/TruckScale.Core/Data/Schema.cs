@@ -5,7 +5,7 @@ namespace TruckScale.Core.Data;
 /// <summary>SQLite schema of the new TruckScale database. See docs/DATABASE.md.</summary>
 public static class Schema
 {
-    public const int Version = 1;
+    public const int Version = 2;
 
     public const string Sql = """
         CREATE TABLE partners (
@@ -72,6 +72,7 @@ public static class Schema
             tare            INTEGER,
             net             INTEGER,
             stored_tare     INTEGER NOT NULL DEFAULT 0,
+            manual_tare     INTEGER NOT NULL DEFAULT 0,
             operator        TEXT,
             note            TEXT,
             legacy_id       INTEGER
@@ -101,6 +102,19 @@ public static class Schema
         }
         tx.Commit();
         return conn;
+    }
+
+    /// <summary>Brings a database of an older program version up to <see cref="Version"/>. Existing data is not changed.</summary>
+    public static void Upgrade(SqliteConnection conn)
+    {
+        using var tx = conn.BeginTransaction();
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "PRAGMA user_version";
+        if (Convert.ToInt32(cmd.ExecuteScalar()) != 1) return;
+        cmd.CommandText = $"ALTER TABLE weighings ADD COLUMN manual_tare INTEGER NOT NULL DEFAULT 0;\nPRAGMA user_version = {Version};";
+        cmd.ExecuteNonQuery();
+        tx.Commit();
     }
 
     public static SqliteConnection Open(string path)

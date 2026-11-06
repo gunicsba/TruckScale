@@ -39,9 +39,17 @@
         <AutoCompleteBox x:Name="PlateBox" PlaceholderText="{l:T w.platePlaceholder}" />
         <Button Grid.Column="1" x:Name="PlateList" Content="▾" Margin="4,0,0,0" />
       </Grid>
-      <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Spacing="16">
-        <TextBlock x:Name="TareInfo" Classes="hint" VerticalAlignment="Center" />
-        <CheckBox x:Name="UseStoredTare" Content="{l:T w.useTare}" />
+      <StackPanel Grid.Row="7" Grid.Column="1" Spacing="4">
+        <StackPanel Orientation="Horizontal" Spacing="16">
+          <TextBlock x:Name="TareInfo" Classes="hint" VerticalAlignment="Center" />
+          <CheckBox x:Name="UseStoredTare" Content="{l:T w.useTare}" />
+        </StackPanel>
+        <!-- Kiszállítás only -->
+        <StackPanel x:Name="ManualTarePanel" Orientation="Horizontal" Spacing="8" IsVisible="False">
+          <CheckBox x:Name="UseManualTare" Content="{l:T w.useManualTare}" ToolTip.Tip="{l:T w.tip.manualTare}" />
+          <TextBox x:Name="ManualTareBox" Width="110" IsEnabled="False" />
+          <TextBlock Text="kg" VerticalAlignment="Center" />
+        </StackPanel>
       </StackPanel>
 
       <TextBlock Grid.Row="8" Classes="label" Text="{l:T f.driver}" />

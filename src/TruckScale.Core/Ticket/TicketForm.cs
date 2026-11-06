@@ -28,7 +28,8 @@ public static partial class TicketForm
         Material = 26, MaterialNote = 27, Marking = 28,
         Gross = 4, Net = 5, Tare = 6, Operator = 25,
         CompanyNote = 32,    // printed between Átadó and Átvevő, e.g. "… 0123/4 Hrsz"
-        StoredTare = 43, MeasuredWeight = 44,
+        StoredTare = 43,
+        CurrentWeight = 44,  // "Aktuális súly": always the net weight
         CompanyHeader = 90,  // new: company name and address from the settings
         DirectionText = 91,  // new: Beszállítás / Kiszállítás
         WeighingNote = 92;   // new: note of the weighing only
@@ -95,11 +96,12 @@ public static partial class TicketForm
                 MaterialNote => string.Join(" – ", new[] { w.MaterialNote, w.Note }.Where(s => !string.IsNullOrWhiteSpace(s))),
                 WeighingNote => w.Note ?? "",
                 Marking => w.Marking ?? "",
-                Gross => Kg(w.Gross), Net => Kg(w.Net), Tare => Kg(w.Tare),
+                Gross => Kg(w.Gross), Net => Kg(w.Net),
+                Tare => w.ManualTare ? L.F("form.manualTare", Kg(w.Tare)) : Kg(w.Tare),   // part of the value: works with every form file
                 Operator => settings.GetValueOrDefault("operator.name") ?? "",
                 CompanyNote => settings.GetValueOrDefault("company.note") ?? "",
-                StoredTare => w.StoredTare ? Kg(w.Tare) : "",
-                MeasuredWeight => Kg(w.SecondWeight ?? w.FirstWeight),
+                StoredTare => w.StoredTare || w.ManualTare ? Kg(w.Tare) : "",   // the old forms label this field "Kézi tára:"
+                CurrentWeight => Kg(w.Net),
                 CompanyHeader => company,
                 DirectionText => w.DirectionText,
                 _ => "",

@@ -155,6 +155,7 @@ settings (key/value)
 | `closed_at` | TEXT | When the ticket was closed (`DONE`) or cancelled (`VOID`); reports filter on this. With "Használ" there is only a 1st weighing, and `closed_at` = `first_at` |
 | `gross`, `tare`, `net` | INTEGER | Computed when closing. IN: 1st = gross, 2nd = tare; OUT: the reverse |
 | `stored_tare` | INTEGER (0/1) | 1 = "Használ": the vehicle's stored tare was used, with only one weighing |
+| `manual_tare` | INTEGER (0/1) | 1 = "Kézi tára" (Kiszállítás): the tare was typed in by hand, with only one weighing. Marked on the ticket. Added in schema version 2; older databases are upgraded when opened |
 | `operator` | TEXT | Who weighed |
 | `note` | TEXT | |
 | `legacy_id` | INTEGER | Old `W_RECEIPTS.ID` |
@@ -163,10 +164,10 @@ settings (key/value)
 | State | What can change |
 |---|---|
 | New weighing (before Mérés) | Everything: direction, customer, plate, driver, material, Megjelölés, "Használ" |
-| `OPEN` (after the 1st Mérés, truck in the yard) | **Read-only**; only the 2nd weighing can be recorded, or **Stornó** (→ `VOID`), then start again correctly |
+| `OPEN` (after the 1st Mérés, truck in the yard) | **Read-only**; only the 2nd weighing can be recorded, or **Stornó** (→ `VOID`), then start again correctly. The note can be edited, and on Kiszállítás also the material (required) |
 | `DONE` (closed, ticket printed) | Read-only; can be reprinted |
 
-The program records weights only from the scale, and only from a stable reading (`ST`).
+The program records weights only from the scale, and only from a stable reading (`ST`). The one exception is the typed tare of "Kézi tára", which is marked on the ticket and in `manual_tare`.
 
 ### `settings`
 `key TEXT PK, value TEXT`: serial port, scale protocol, printer, company details for the ticket header, form file, next ticket number, and so on. TS.ini values are imported here as well.

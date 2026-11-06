@@ -69,9 +69,13 @@ public sealed record Weighing
     public int? Tare { get; init; }
     public int? Net { get; init; }
     public bool StoredTare { get; init; }
+    /// <summary>The tare was typed in by hand, not measured (shown on the ticket).</summary>
+    public bool ManualTare { get; init; }
     /// <summary>Note of this weighing (editable at both weighings, printed on the ticket).</summary>
     public string? Note { get; init; }
 
+    /// <summary>The material as shown on the arrival screen: "Name (note)".</summary>
+    public string? MaterialDisplay => string.IsNullOrWhiteSpace(MaterialNote) ? MaterialName : $"{MaterialName} ({MaterialNote})";
     public string DirectionText => L.T(Direction == Direction.In ? "dir.in" : "dir.out");
     public string StatusText => L.T(Status switch { WeighingStatus.Open => "status.open", WeighingStatus.Void => "status.void", _ => "status.done" });
     public string FirstAtText => L.DateTime(FirstAt);

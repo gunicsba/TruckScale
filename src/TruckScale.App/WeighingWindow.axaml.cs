@@ -40,7 +40,7 @@ public partial class WeighingWindow : Window
             PartnerBox.Text = last.PartnerName;
             PlateBox.Text = last.Plate;
             DriverBox.Text = last.DriverName;
-            MaterialBox.Text = MaterialText(last);
+            MaterialBox.Text = last.MaterialDisplay;
         }
         UpdateInfo();
     }
@@ -53,7 +53,7 @@ public partial class WeighingWindow : Window
         PartnerBox.Text = open.PartnerName;
         PlateBox.Text = open.Plate;
         DriverBox.Text = open.DriverName;
-        MaterialBox.Text = MaterialText(open);
+        MaterialBox.Text = open.MaterialDisplay;
         MarkingBox.Text = open.Marking;
         NoteBox.Text = open.Note;
 
@@ -64,8 +64,10 @@ public partial class WeighingWindow : Window
         }
         PartnerNew.IsVisible = PartnerEdit.IsVisible = false;
         foreach (var c in new Control[] { DirIn, DirOut, PartnerBox, PartnerList,
-                     PlateBox, PlateList, DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox })
+                     PlateBox, PlateList, DriverBox, DriverList, UseStoredTare, MarkingBox })
             c.IsEnabled = false;
+        // Kiszállítás: what was loaded is often only settled by the 2nd weighing.
+        MaterialBox.IsEnabled = MaterialList.IsEnabled = MaterialEditable;
         UseStoredTare.IsVisible = false;
         FirstPanel.IsVisible = true;
         FirstInfo.Text = $"{AppState.Kg(open.FirstWeight)}   {AppState.When(open.FirstAt)}";
@@ -97,7 +99,28 @@ public partial class WeighingWindow : Window
         PartnerBox.TextChanged += (_, _) => UpdateInfo();
         PlateBox.TextChanged += (_, _) => UpdateInfo();
         MaterialBox.TextChanged += (_, _) => UpdateInfo();
-        UseStoredTare.IsCheckedChanged += (_, _) => UpdateHint();
+        UseStoredTare.IsCheckedChanged += (_, _) =>
+        {
+            if (UseStoredTare.IsChecked == true) UseManualTare.IsChecked = false;
+            UpdateHint();
+        };
+        UseManualTare.IsCheckedChanged += (_, _) =>
+        {
+            ManualTareBox.IsEnabled = UseManualTare.IsChecked == true;
+            if (ManualTareBox.IsEnabled)
+            {
+                UseStoredTare.IsChecked = false;
+                ManualTareBox.Focus();
+            }
+            UpdateHint();
+        };
+        ManualTareBox.TextChanged += (_, _) => UpdateHint();
+        // Manual tare is for Kiszállítás only, and not for a truck already in the yard (its tare is the 1st weighing).
+        DirOut.IsCheckedChanged += (_, _) =>
+        {
+            ManualTarePanel.IsVisible = _open is null && DirOut.IsChecked == true;
+            if (!ManualTarePanel.IsVisible) UseManualTare.IsChecked = false;
+        };
         // Picking a plate from the list suggests its usual driver.
         PlateBox.SelectionChanged += (_, _) =>
         {
@@ -142,9 +165,6 @@ public partial class WeighingWindow : Window
         ZipBox.Text = p?.Zip;
         _detailsFor = p?.Id;
     }
-
-    private static string? MaterialText(Weighing w) =>
-        string.IsNullOrWhiteSpace(w.MaterialNote) ? w.MaterialName : $"{w.MaterialName} ({w.MaterialNote})";
 
     /// <summary>Accent- and case-insensitive "contains" search; the ▾ button lists everything.</summary>
     private static void Setup<T>(AutoCompleteBox box, Button listButton, List<T> items) where T : notnull
@@ -208,7 +228,7 @@ public partial class WeighingWindow : Window
         if (_open is not null)
         {
             TareInfo.Text = "";
-            MaterialInfo.Text = "";
+            UpdateMaterialInfo();
             UpdateHint();
             return;
         }
@@ -235,9 +255,14 @@ public partial class WeighingWindow : Window
             UseStoredTare.IsEnabled = false;
         }
 
+        UpdateMaterialInfo();
+        UpdateHint();
+    }
+
+    private void UpdateMaterialInfo()
+    {
         var m = _materials.FirstOrDefault(x => Normalize.NameKey(x.Display) == Normalize.NameKey(MaterialBox.Text));
         MaterialInfo.Text = m?.Comment is { } c ? L.F("w.materialComment", c) : "";
-        UpdateHint();
     }
 
     private void OnReading()
@@ -258,9 +283,7 @@ public partial class WeighingWindow : Window
             PrintButton.IsEnabled = !_busy;
             return;
         }
-        HintText.Text = problem ?? (_open is null && UseStoredTare.IsChecked == true
-            ? L.F("w.oneWeighing", AppState.Kg(CurrentVehicle?.LastTare))
-            : "");
+        HintText.Text = problem ?? (OneWeighingTare is int tare ? L.F("w.oneWeighing", AppState.Kg(tare)) : "");
         WeighButton.IsEnabled = problem is null && !_busy;
         // When the ticket gets closed, "Mérés + nyomtatás" does everything in one go (and is the Enter key).
         PrintButton.Content = L.T("w.weighPrint");
@@ -271,7 +294,7 @@ public partial class WeighingWindow : Window
 
     /// <summary>
     /// The net weight that Mérés would give now: 2nd weighing = difference to the 1st weight,
-    /// "Használ" = reading minus the stored tare. Not shown at a plain 1st weighing or after closing.
+    /// "Használ" / "Kézi tára" = reading minus that tare. Not shown at a plain 1st weighing or after closing.
     /// </summary>
     private void UpdateNetPreview()
     {
@@ -279,7 +302,7 @@ public partial class WeighingWindow : Window
         if (_done is null && _state.Reading is { } r && r.Status != ScaleStatus.Overload)
         {
             if (_open is not null) net = Math.Abs(r.Weight - (_open.FirstWeight ?? 0));
-            else if (UseStoredTare.IsChecked == true && CurrentVehicle?.LastTare is int t) net = r.Weight - t;
+            else if (OneWeighingTare is int t) net = r.Weight - t;
         }
         NetPreview.IsVisible = net is not null;
         NetPreview.Text = net is null ? "" : L.F("w.netPreview", AppState.Kg(net));
@@ -294,12 +317,18 @@ public partial class WeighingWindow : Window
         if (r.Status == ScaleStatus.Overload) return L.T("w.p.overload");
         if (!r.IsStable) return L.T("w.p.unstable");
         if (r.Weight < 0) return L.T("w.p.negative");   // 0 kg is allowed (e.g. bagged goods), with a question
-        if (_open is not null) return null;
+        if (_open is not null) return MaterialEditable && string.IsNullOrWhiteSpace(MaterialBox.Text) ? L.T("w.p.material") : null;
         if (string.IsNullOrWhiteSpace(PartnerBox.Text)) return L.T("w.p.choosePartner");
         if (CurrentPartner is null) return L.T("w.p.unknownPartner");
         if (Normalize.PlateKey(PlateBox.Text).Length == 0) return L.T("w.p.plate");
+        if (string.IsNullOrWhiteSpace(MaterialBox.Text)) return L.T("w.p.material");
         if (UseStoredTare.IsChecked == true && CurrentVehicle?.LastTare is int t && r.Weight <= t)
             return L.F("w.p.belowTare", AppState.Kg(t));
+        if (UseManualTare.IsChecked == true)
+        {
+            if (ManualTare is not int mt) return L.T("w.p.manualTare");
+            if (r.Weight <= mt) return L.F("w.p.belowManualTare", AppState.Kg(mt));
+        }
         return null;
     }
 
@@ -309,7 +338,7 @@ public partial class WeighingWindow : Window
     }
 
     /// <summary>
-    /// Mérés. Returns the closed weighing (2nd weighing or "Használ"), or null if nothing was closed
+    /// Mérés. Returns the closed weighing (2nd weighing, "Használ" or "Kézi tára"), or null if nothing was closed
     /// (1st weighing: the window closes; cancelled or failed: the window stays).
     /// </summary>
     private async Task<Weighing?> Weigh()
@@ -328,7 +357,7 @@ public partial class WeighingWindow : Window
                 if (Math.Abs(weight - (_open.FirstWeight ?? 0)) < 200 &&
                     !await Dialog.Confirm(this, L.T("w.weigh"), L.F("w.similar", AppState.Kg(_open.FirstWeight), AppState.Kg(weight))))
                     return null;
-                return _state.Db.CloseWeighing(_open.Id, weight, now, NoteBox.Text ?? "");
+                return _state.Db.CloseWeighing(_open.Id, weight, now, NoteBox.Text ?? "", MaterialEditable ? MaterialBox.Text : null);
             }
 
             var draft = new WeighingDraft(
@@ -337,6 +366,8 @@ public partial class WeighingWindow : Window
 
             if (UseStoredTare.IsChecked == true)
                 return _state.Db.SingleWeighing(draft, weight, now);
+            if (UseManualTare.IsChecked == true)
+                return _state.Db.ManualTareWeighing(draft, weight, ManualTare!.Value, now);
 
             var w = _state.Db.StartWeighing(draft, weight, now);
             await Dialog.Info(this, L.T("w.first"), L.F("w.firstRecorded", w.Plate, AppState.Kg(weight)));
@@ -360,13 +391,13 @@ public partial class WeighingWindow : Window
     {
         _done = w;
         foreach (var c in new Control[] { DirIn, DirOut, PartnerBox, PartnerList, PartnerNew, PartnerEdit, PlateBox, PlateList,
-                     DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, MarkingBox, NoteBox })
+                     DriverBox, DriverList, MaterialBox, MaterialList, UseStoredTare, UseManualTare, ManualTareBox, MarkingBox, NoteBox })
             c.IsEnabled = false;
         VoidButton.IsVisible = false;
         CancelButton.Content = L.T("common.close");
         Title = L.F("w.titleTicket", w.TicketNo, w.DirectionText);
         ResultText.Text = L.F("w.result", w.TicketNo, AppState.Kg(w.Gross), AppState.Kg(w.Tare),
-            w.StoredTare ? L.T("w.resultStored") : "", AppState.Kg(w.Net));
+            w.StoredTare ? L.T("w.resultStored") : w.ManualTare ? L.T("w.resultManual") : "", AppState.Kg(w.Net));
         ResultPanel.IsVisible = true;
         PrintButton.IsEnabled = true;
         PrintButton.IsDefault = true;
@@ -399,8 +430,20 @@ public partial class WeighingWindow : Window
         Close();
     }
 
-    /// <summary>Closing the ticket (2nd weighing or "Használ") – then printing makes sense.</summary>
-    private bool ClosesTicket => _open is not null || UseStoredTare.IsChecked == true;
+    /// <summary>Closing the ticket (2nd weighing, "Használ" or "Kézi tára") – then printing makes sense.</summary>
+    private bool ClosesTicket => _open is not null || UseStoredTare.IsChecked == true || UseManualTare.IsChecked == true;
+
+    /// <summary>2nd weighing of a Kiszállítás: the material can still be changed, and must be given.</summary>
+    private bool MaterialEditable => _open?.Direction == Direction.Out;
+
+    private int? ManualTare => WeighingMath.ParseTare(ManualTareBox.Text);
+
+    /// <summary>The tare of a weighing closed in one step ("Használ" or "Kézi tára"), if already known.</summary>
+    private int? OneWeighingTare =>
+        _open is not null ? null
+        : UseStoredTare.IsChecked == true ? CurrentVehicle?.LastTare
+        : UseManualTare.IsChecked == true ? ManualTare
+        : null;
 
     private async void OnVoid(object? sender, RoutedEventArgs e)
     {

@@ -19,6 +19,7 @@ public sealed class TruckScaleDb : IDisposable
         var dir = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path));
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
         var conn = File.Exists(path) ? Schema.Open(path) : Schema.CreateNew(path);
+        Schema.Upgrade(conn);
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "PRAGMA user_version";
@@ -186,7 +187,7 @@ public sealed class TruckScaleDb : IDisposable
     private const string WeighingCols = """
         id, ticket_no, direction, status, partner_id, vehicle_id, driver_id, material_id,
         partner_name, partner_address, plate, driver_name, material_name, material_note, marking,
-        first_weight, first_at, second_weight, second_at, closed_at, gross, tare, net, stored_tare, note
+        first_weight, first_at, second_weight, second_at, closed_at, gross, tare, net, stored_tare, note, manual_tare
         """;
 
     private static Weighing ReadWeighing(SqliteDataReader r) => new()
@@ -200,7 +201,7 @@ public sealed class TruckScaleDb : IDisposable
         MaterialName = Str(r, 12), MaterialNote = Str(r, 13), Marking = Str(r, 14),
         FirstWeight = Int(r, 15), FirstAt = Dt(r, 16), SecondWeight = Int(r, 17), SecondAt = Dt(r, 18), ClosedAt = Dt(r, 19),
         Gross = Int(r, 20), Tare = Int(r, 21), Net = Int(r, 22), StoredTare = r.GetInt64(23) == 1,
-        Note = Str(r, 24),
+        Note = Str(r, 24), ManualTare = r.GetInt64(25) == 1,
     };
 
     public Weighing GetWeighing(long id) =>
@@ -240,11 +241,18 @@ public sealed class TruckScaleDb : IDisposable
     }
 
     /// <summary>One Mérés with the vehicle's stored tare ("Használ"): closed immediately.</summary>
-    public Weighing SingleWeighing(WeighingDraft d, int weight, DateTime at)
+    public Weighing SingleWeighing(WeighingDraft d, int weight, DateTime at) =>
+        ClosedInOne(d, weight, at, "stored_tare", v => WeighingMath.FromStoredTare(weight, v.LastTare ?? 0));
+
+    /// <summary>One Mérés with a tare typed in by hand: closed immediately. The vehicle's stored tare stays as it was measured.</summary>
+    public Weighing ManualTareWeighing(WeighingDraft d, int weight, int tare, DateTime at) =>
+        ClosedInOne(d, weight, at, "manual_tare", _ => WeighingMath.FromManualTare(weight, tare));
+
+    private Weighing ClosedInOne(WeighingDraft d, int weight, DateTime at, string tareFlag, Func<Vehicle, WeightResult> compute)
     {
         using var tx = _c.BeginTransaction();
         var v = Resolved(d, tx);
-        var res = WeighingMath.FromStoredTare(weight, v.Vehicle.LastTare ?? 0);
+        var res = compute(v.Vehicle);
         var id = InsertWeighing(d, v, tx, new()
         {
             ["status"] = "DONE",
@@ -253,7 +261,7 @@ public sealed class TruckScaleDb : IDisposable
             ["first_at"] = Schema.Ts(at),
             ["closed_at"] = Schema.Ts(at),
             ["gross"] = res.Gross, ["tare"] = res.Tare, ["net"] = res.Net,
-            ["stored_tare"] = 1,
+            [tareFlag] = 1,
         });
         tx.Commit();
         return GetWeighing(id);
@@ -262,8 +270,9 @@ public sealed class TruckScaleDb : IDisposable
     /// <summary>
     /// Second Mérés of a truck in the yard: closes the ticket and stores the vehicle's tare.
     /// <paramref name="note"/> (if not null) replaces the weighing's note; empty text clears it.
+    /// <paramref name="material"/> (if not null) replaces the material and must not be empty.
     /// </summary>
-    public Weighing CloseWeighing(long id, int weight, DateTime at, string? note = null)
+    public Weighing CloseWeighing(long id, int weight, DateTime at, string? note = null, string? material = null)
     {
         using var tx = _c.BeginTransaction();
         var w = Query($"SELECT {WeighingCols} FROM weighings WHERE id = $id", ReadWeighing, tx, ("$id", id)).Single();
@@ -276,6 +285,17 @@ public sealed class TruckScaleDb : IDisposable
             ("$g", res.Gross), ("$ta", res.Tare), ("$n", res.Net), ("$id", id));
         if (note is not null)
             Exec("UPDATE weighings SET note = $note WHERE id = $id", tx, ("$note", Normalize.CleanOrNull(note)), ("$id", id));
+        if (material is not null)
+        {
+            if (string.IsNullOrWhiteSpace(material)) throw new ArgumentException(L.T("db.noMaterial"));
+            // Unchanged text keeps the snapshot taken at the 1st weighing.
+            if (Normalize.NameKey(material) != Normalize.NameKey(w.MaterialDisplay))
+            {
+                var m = ResolveMaterial(material, tx)!;
+                Exec("UPDATE weighings SET material_id = $m, material_name = $n, material_note = $mn WHERE id = $id", tx,
+                    ("$m", m.Id), ("$n", m.Name), ("$mn", m.Note), ("$id", id));
+            }
+        }
         if (w.VehicleId is long vid)
             Exec("UPDATE vehicles SET last_tare = $t, last_tare_at = $at, default_driver_id = COALESCE($d, default_driver_id) WHERE id = $id",
                 tx, ("$t", res.Tare), ("$at", Schema.Ts(at)), ("$d", w.DriverId), ("$id", vid));

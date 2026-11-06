@@ -1,3 +1,4 @@
+using System.Globalization;
 using TruckScale.Core.Localization;
 namespace TruckScale.Core;
 
@@ -22,5 +23,21 @@ public static class WeighingMath
         if (storedTare <= 0) throw new ArgumentOutOfRangeException(nameof(storedTare), L.T("db.noStoredTare"));
         if (loaded <= storedTare) throw new InvalidOperationException(L.F("db.notAboveTare", L.Kg(loaded), L.Kg(storedTare)));
         return new WeightResult(loaded, storedTare, loaded - storedTare);
+    }
+
+    /// <summary>One weighing of the loaded truck with a tare typed in by hand (Kiszállítás, "Kézi tára").</summary>
+    public static WeightResult FromManualTare(int loaded, int manualTare)
+    {
+        if (manualTare <= 0) throw new ArgumentOutOfRangeException(nameof(manualTare), L.T("db.noManualTare"));
+        if (loaded <= manualTare) throw new InvalidOperationException(L.F("db.notAboveManualTare", L.Kg(loaded), L.Kg(manualTare)));
+        return new WeightResult(loaded, manualTare, loaded - manualTare);
+    }
+
+    /// <summary>Reads a typed tare: whole kilograms, spaces and a trailing "kg" allowed ("12 300 kg"). Null if not a positive number.</summary>
+    public static int? ParseTare(string? text)
+    {
+        var s = string.Concat((text ?? "").Where(c => !char.IsWhiteSpace(c)));
+        if (s.EndsWith("kg", StringComparison.OrdinalIgnoreCase)) s = s[..^2];
+        return int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : null;
     }
 }

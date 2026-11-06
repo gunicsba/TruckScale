@@ -54,11 +54,11 @@ public static class Csv
     /// <summary>One line per weighing.</summary>
     public static string Weighings(IEnumerable<Weighing> rows) => Build(
         [L.T("f.ticket"), L.T("f.status"), L.T("f.direction"), L.T("f.arrived"), L.T("f.closed"), L.T("f.plate"), L.T("f.customer"),
-         L.T("f.driver"), L.T("f.material"), L.T("f.marking"), L.T("f.note"), L.T("f.grossKg"), L.T("f.tareKg"), L.T("f.netKg"), L.T("csv.storedTare")],
+         L.T("f.driver"), L.T("f.material"), L.T("f.marking"), L.T("f.note"), L.T("f.grossKg"), L.T("f.tareKg"), L.T("f.netKg"), L.T("csv.storedTare"), L.T("csv.manualTare")],
         rows.Select(w => (IEnumerable<object?>)new object?[]
         {
             w.TicketNo, w.StatusText, w.DirectionText, w.FirstAt, w.ClosedAt, w.Plate, w.PartnerName,
-            w.DriverName, w.MaterialName, w.Marking, w.Note, w.Gross, w.Tare, w.Net, w.StoredTare ? L.T("common.yes") : "",
+            w.DriverName, w.MaterialName, w.Marking, w.Note, w.Gross, w.Tare, w.Net, w.StoredTare ? L.T("common.yes") : "", w.ManualTare ? L.T("common.yes") : "",
         }));
 }
 

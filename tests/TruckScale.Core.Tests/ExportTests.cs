@@ -41,7 +41,7 @@ public sealed class ExportTests : IDisposable
 
         var w = new Weighing { TicketNo = 7, Plate = "ABC-123", PartnerName = "Minta; Kft.", Gross = 30000, Tare = 10000, Net = 20000, ClosedAt = new DateTime(2025, 7, 1) };
         var csv = Csv.Weighings([w]).Split("\r\n");
-        Assert.Equal(15, csv[0].Split(';').Length);
+        Assert.Equal(16, csv[0].Split(';').Length);
         Assert.StartsWith("7;", csv[1]);
         Assert.Contains("\"Minta; Kft.\"", csv[1]);
         Assert.Contains(";30000;10000;20000;", csv[1]);

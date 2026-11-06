@@ -16,6 +16,8 @@ C# / .NET 10 · [Avalonia](https://avaloniaui.net/) UI · SQLite · Windows, Lin
   - Trucks wait in the **yard list** for their second weighing.
   - **Mérés + nyomtatás** (weigh and print) closes the ticket, prints it and closes the window in one step.
   - **Használ** (stored tare) closes a ticket with a single weighing.
+  - **Kézi tára** (manual tare, outbound only) does the same with a typed tare, and the ticket marks it as manual.
+  - A weighing can't be started without a material.
   - **Stornó** cancels an open weighing; it is kept, not deleted.
 - **Lists:** customers with address; plates and drivers are independent of the customer, since one truck hauls for many customers.
 - **Tickets:** printed on A4 from the old program's `.form` layouts or the samples in [`forms/`](forms) (or a built-in layout), with preview and zoom. Any past ticket can be reprinted. Each weighing has its own note, editable at both weighings and printed on the ticket.

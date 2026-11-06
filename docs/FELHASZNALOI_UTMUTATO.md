@@ -10,6 +10,7 @@ Hídmérleg-program a be- és kiszállított terményekhez: mérlegelés, mérle
 [Beszállítás / kiszállítás](#beszállítás--kiszállítás-első-mérés) ·
 [Távozás](#távozás-második-mérés-és-mérlegjegy) ·
 [Használ](#használ-tárolt-tára-egy-mérés) ·
+[Kézi tára](#kézi-tára-kiszállításnál) ·
 [Stornó](#stornó) ·
 [Napló](#napló-összes-mérés-újranyomtatás) ·
 [Áttekintés](#áttekintés-összesítő) ·
@@ -58,7 +59,9 @@ A **Beszállítás** vagy **Kiszállítás** gomb a „Jármű érkezése” abl
 | **Szerkesztés…** | A kiválasztott ügyfél adatainak javítása. |
 | **Rendszám** | Választható vagy beírható. Új rendszámot a program magától felvesz. Ha a listából választod, a szokásos sofőrt is beírja. Az írásmód nem számít: „ABC-123/XYZ-456” = „abc123 xyz456”. |
 | **Tárolt tára / Használ** | A jármű utolsó mért üres súlya. Lásd [Használ](#használ-tárolt-tára-egy-mérés). |
-| **Sofőr, Anyag** | Választható vagy beírható. Az újakat a program felveszi. |
+| **Kézi tára** | Csak kiszállításnál. Lásd [Kézi tára](#kézi-tára-kiszállításnál). |
+| **Sofőr** | Választható vagy beírható. Az újakat a program felveszi. |
+| **Anyag** | **Kötelező:** anyag nélkül nem indítható mérés. Választható vagy beírható, az újakat a program felveszi. |
 | **Megjelölés** | Szabad szöveg, nem kötelező (pl. tábla, szerződésszám). Rákerül a jegyre. |
 | **Megjegyzés** | A mérés saját megjegyzése (pl. „szárítóba”, nedvesség). Távozáskor is javítható, és rákerül a mérlegjegyre. |
 
@@ -78,7 +81,7 @@ Amikor a jármű távozik, a főablak **Udvaron** listájában **dupla kattintá
 
 A kijelző alatt zölddel látszik a **Nettó**, amit a Mérés most adna: az első és a mostani súly különbsége. A mérleg mozgása közben halványan látszik, és már a Mérés megnyomása előtt ellenőrizhető.
 
-Itt már csak a **Megjegyzés** módosítható (lezáráskor elmentődik), minden más rögzített:
+Itt már csak a **Megjegyzés** módosítható (lezáráskor elmentődik), **kiszállításnál az Anyag is**, minden más rögzített. Kiszállításnál anyag nélkül nem lehet lezárni a mérést.
 
 - **Mérés + nyomtatás** (és az **Enter** is): lemér, lezárja a jegyet, kinyomtatja a mérlegjegyet, és bezárja az ablakot. A nyomtatás ideje alatt a jegyszám és a nettó súly látszik.
 - **Mérés:** csak lezár és megmutatja az eredményt. A **Nyomtatás** gombbal ugyanott ki lehet nyomtatni.
@@ -99,6 +102,17 @@ Ha a jármű üres súlya már ismert (Tárolt tára), elég **egyszer**, rakott
 2. Nyomd meg a **Mérés + nyomtatás** gombot (vagy az Entert).
 
 A **Nettó** (mért súly − tárolt tára) a Mérés előtt is látszik a kijelző alatt. A program a mért súlyból levonja a tárolt tárát, lezárja és kinyomtatja a jegyet. A jármű nem kerül az udvarra.
+
+## Kézi tára (kiszállításnál)
+
+Kiszállításnál a tára kézzel is megadható, ha a jármű üres súlya ismert, de nem mérjük le:
+
+1. Pipáld be a **Kézi tára** jelölőt, és írd be a súlyt kilogrammban.
+2. A rakott járművel a mérlegen nyomd meg a **Mérés + nyomtatás** gombot (vagy az Entert).
+
+A **Nettó** (mért súly − kézi tára) a Mérés előtt is látszik. A program lezárja és kinyomtatja a jegyet, a jármű nem kerül az udvarra. A **jegyen a tára mellett megjelenik, hogy kézi**, például: `12 300 kg (kézi)`. Ez a Naplóból újranyomtatott jegyen is így van, a CSV-listában pedig külön oszlop jelzi.
+
+A kézi tára nem írja felül a jármű tárolt táráját, mert az mindig mért érték marad.
 
 ## Mérés 0 kg-hoz (pl. zsákos áru)
 
