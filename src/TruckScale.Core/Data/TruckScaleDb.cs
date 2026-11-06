@@ -19,7 +19,8 @@ public sealed class TruckScaleDb : IDisposable
         var dir = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path));
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
         var conn = File.Exists(path) ? Schema.Open(path) : Schema.CreateNew(path);
-        Schema.Upgrade(conn);
+        try { Schema.Upgrade(conn); }
+        catch { conn.Dispose(); throw; }   // don't keep the file locked
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "PRAGMA user_version";

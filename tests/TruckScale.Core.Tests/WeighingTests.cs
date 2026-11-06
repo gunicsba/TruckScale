@@ -115,13 +115,16 @@ public sealed class WeighingTests : IDisposable
         var w = _db.StartWeighing(Draft(), 25000, T0);
         var closed = _db.CloseWeighing(w.Id, 11000, T0.AddMinutes(5));
         var inYard = _db.StartWeighing(Draft(plate: "DEF-456"), 20000, T0);
+        // Fresh connections on both sides, like a program start: a pooled one would remember the old schema.
+        _db.Dispose();
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         using (var c = Schema.Open(_path))
         using (var cmd = c.CreateCommand())
         {
             cmd.CommandText = "ALTER TABLE weighings DROP COLUMN manual_tare; PRAGMA user_version = 1;";
             cmd.ExecuteNonQuery();
         }
-        _db.Dispose();
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
 
         using var old = TruckScaleDb.OpenOrCreate(_path);
         Assert.Equal(closed, old.GetWeighing(w.Id));
