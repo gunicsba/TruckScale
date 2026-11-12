@@ -40,7 +40,9 @@ A programot a `TruckScale.exe` indítja, telepíteni nem kell.
   - **MOZGÁS:** a súly még változik, várni kell.
   - **NINCS KAPCSOLAT:** a program nem kap adatot a mérlegtől.
 - A program **teljes képernyőn** indul.
-- **Új verzió:** induláskor a program megnézi a GitHubon, van-e újabb kiadás. Ha van, felül sárga sáv jelenik meg, a **Letöltés oldal megnyitása** gomb a letöltési oldalra visz. Internet nélkül nem történik semmi. A keresés a Beállításban (Program rész) kikapcsolható. A frissítés: a régi programmappát le kell cserélni az új zip tartalmára. Az adatok (`truckscale.db`) máshol vannak, azok megmaradnak.
+- **Új verzió:** induláskor a program megnézi a GitHubon, van-e újabb kiadás. Ha van, felül sárga sáv jelenik meg, a **Letöltés oldal megnyitása** gomb a letöltési oldalra visz. Internet nélkül nem történik semmi. A keresés a Beállításban (Program rész) kikapcsolható. Az adatok (`truckscale.db`) máshol vannak, frissítéskor megmaradnak.
+  - **Kis frissítőcsomag (Windows):** ha a kiadásnál van `…-win-x64-frissites.zip` (kb. 0,5 MB), elég azt letölteni. Zárd be a programot, csomagold ki a program mappájába a meglévő fájlok felülírásával, majd indítsd el. A kiadás leírása megmondja, melyik verzióról lehet így frissíteni.
+  - **Teljes csomag:** ha nincs frissítőcsomag (pl. a .NET is frissült), vagy több verziót ugrasz, a régi programmappát cseréld le az új teljes zip tartalmára.
 - **Lent** két lista egymás alatt:
   - **Udvaron** (felül, kék keretben): a bent lévő járművek, akiknek még nincs meg a második mérésük. Három jármű fér el benne görgetés nélkül.
   - **Mai mérések:** a ma lezárt jegyek. Dupla kattintással megnyílik a mérlegjegy, és újranyomtatható.

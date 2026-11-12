@@ -28,7 +28,7 @@ C# / .NET 10 · [Avalonia](https://avaloniaui.net/) UI · SQLite · Windows, Lin
 - **Migration:** imports the old `DATA.LIS` (Access/Jet) database. It merges duplicate plates, drivers and customers and checks the totals against the old data.
 - **Weighing:** the net weight is shown live before Mérés (2nd weighing or stored tare); weighing against 0 kg is allowed (bagged goods), after a confirmation.
 - **Export:** CSV from Áttekintés (the summary table or every weighing), opens directly in Excel.
-- **Update check:** at startup the program looks up the latest GitHub release and shows a bar if a newer one exists (can be switched off in Settings; silent when offline).
+- **Update check:** at startup the program looks up the latest GitHub release and shows a bar if a newer one exists (can be switched off in Settings; silent when offline). Windows releases also get a small update package (`…-win-x64-frissites.zip`, about 0.5 MB) with only the program's own files, built by [`tools/UpdatePackage.ps1`](tools/UpdatePackage.ps1) when nothing else changed since the previous release.
 - **Settings file:** all settings, including the ticket form, can be saved to a file and loaded on another computer.
 
 | | |
